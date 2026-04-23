@@ -4,6 +4,7 @@ import {
   fetchDailyByStage,
   fetchHeroStat,
   fetchModelsSeen,
+  fetchParseErrorRate,
   fetchTopRuns,
   type DailyBreakdownRow,
 } from "@/lib/queries";
@@ -46,13 +47,15 @@ export default async function DashboardPage({
   const params = await searchParams;
   const days = Math.max(1, Math.min(365, Number(params.days) || 30));
 
-  const [hero, dailyEnvRaw, dailyStageRaw, topRuns, models] = await Promise.all([
-    fetchHeroStat(),
-    fetchDailyByEnv(days),
-    fetchDailyByStage(days),
-    fetchTopRuns(days, 20),
-    fetchModelsSeen(days),
-  ]);
+  const [hero, dailyEnvRaw, dailyStageRaw, topRuns, models, parseErrors] =
+    await Promise.all([
+      fetchHeroStat(),
+      fetchDailyByEnv(days),
+      fetchDailyByStage(days),
+      fetchTopRuns(days, 20),
+      fetchModelsSeen(days),
+      fetchParseErrorRate(days),
+    ]);
 
   const byEnv = pivot(dailyEnvRaw);
   const byStage = pivot(dailyStageRaw);
@@ -103,6 +106,64 @@ export default async function DashboardPage({
             {pct !== null && <> ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)</>}
             <span className="text-neutral-500"> vs prior 24h</span>
           </div>
+        </div>
+      </section>
+
+      <section className="mb-10 rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold dark:border-neutral-800">
+          Parse error rate by stage
+          <span className="ml-2 font-normal text-neutral-500">
+            last {days} days · red when &gt; 1%
+          </span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500 dark:bg-neutral-900">
+              <tr>
+                <th className="px-4 py-2 font-medium">Stage</th>
+                <th className="px-4 py-2 text-right font-medium">Errors</th>
+                <th className="px-4 py-2 text-right font-medium">Total</th>
+                <th className="px-4 py-2 text-right font-medium">Rate</th>
+              </tr>
+            </thead>
+            <tbody>
+              {parseErrors.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-6 text-center text-neutral-500"
+                  >
+                    —
+                  </td>
+                </tr>
+              ) : (
+                parseErrors.map((p) => {
+                  const hot = p.rate > 0.01;
+                  return (
+                    <tr
+                      key={p.stage}
+                      className="border-t border-neutral-100 dark:border-neutral-900"
+                    >
+                      <td className="px-4 py-2 font-mono text-xs">{p.stage}</td>
+                      <td
+                        className={`px-4 py-2 text-right tabular-nums ${hot ? "font-medium text-red-600" : ""}`}
+                      >
+                        {p.errors.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {p.total.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-4 py-2 text-right tabular-nums ${hot ? "font-medium text-red-600" : ""}`}
+                      >
+                        {(p.rate * 100).toFixed(2)}%
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 

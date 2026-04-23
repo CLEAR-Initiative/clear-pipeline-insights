@@ -119,6 +119,40 @@ export async function fetchTopRuns(days: number, limit = 20): Promise<TopRunRow[
   }));
 }
 
+export type ParseErrorRateRow = {
+  stage: string;
+  errors: number;
+  total: number;
+  rate: number;
+};
+
+export async function fetchParseErrorRate(days: number): Promise<ParseErrorRateRow[]> {
+  const rows = await db().execute<{
+    stage: string;
+    errors: string;
+    total: string;
+  }>(sql`
+    SELECT
+      stage,
+      COUNT(*) FILTER (WHERE parse_error IS NOT NULL)::text AS errors,
+      COUNT(*)::text AS total
+    FROM llm_call
+    WHERE created_at >= now() - (${days}::int * interval '1 day')
+    GROUP BY stage
+    ORDER BY stage
+  `);
+  return rows.map((r) => {
+    const errors = Number(r.errors);
+    const total = Number(r.total);
+    return {
+      stage: r.stage,
+      errors,
+      total,
+      rate: total > 0 ? errors / total : 0,
+    };
+  });
+}
+
 export type ModelSeenRow = {
   model: string;
   calls: number;
