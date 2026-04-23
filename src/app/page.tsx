@@ -1,5 +1,6 @@
 import { MODEL_PRICES } from "@/lib/prices";
 import {
+  fetchAvailableEnvs,
   fetchCacheStats,
   fetchDailyByEnv,
   fetchDailyByStage,
@@ -66,15 +67,40 @@ function pivot(rows: DailyBreakdownRow[]) {
   };
 }
 
+function buildEnvHref(
+  days: number,
+  envs: string[],
+  toggle: string | null,
+): string {
+  let next: string[];
+  if (toggle === null) {
+    next = [];
+  } else if (envs.includes(toggle)) {
+    next = envs.filter((e) => e !== toggle);
+  } else {
+    next = [...envs, toggle];
+  }
+  const qs = new URLSearchParams();
+  qs.set("days", String(days));
+  for (const e of next) qs.append("env", e);
+  return `?${qs.toString()}`;
+}
+
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: Promise<{ days?: string }>;
+  searchParams: Promise<{ days?: string; env?: string | string[] }>;
 }) {
   const params = await searchParams;
   const days = Math.max(1, Math.min(365, Number(params.days) || 30));
+  const envs = Array.isArray(params.env)
+    ? params.env
+    : params.env
+      ? [params.env]
+      : [];
 
   const [
+    availableEnvs,
     hero,
     dailyEnvRaw,
     dailyStageRaw,
@@ -84,14 +110,15 @@ export default async function DashboardPage({
     latency,
     cacheRaw,
   ] = await Promise.all([
-    fetchHeroStat(),
-    fetchDailyByEnv(days),
-    fetchDailyByStage(days),
-    fetchTopRuns(days, 20),
-    fetchModelsSeen(days),
-    fetchParseErrorRate(days),
-    fetchLatencyByStage(days),
-    fetchCacheStats(days),
+    fetchAvailableEnvs(),
+    fetchHeroStat(envs),
+    fetchDailyByEnv(days, envs),
+    fetchDailyByStage(days, envs),
+    fetchTopRuns(days, 20, envs),
+    fetchModelsSeen(days, envs),
+    fetchParseErrorRate(days, envs),
+    fetchLatencyByStage(days, envs),
+    fetchCacheStats(days, envs),
   ]);
   const cache = summarizeCache(cacheRaw);
 
@@ -112,16 +139,82 @@ export default async function DashboardPage({
           </h1>
           <p className="text-sm text-neutral-500">
             LLM call cost & volume — last {days} days
+            {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
           </p>
         </div>
         <nav className="text-sm text-neutral-500">
-          <a className="hover:text-neutral-900" href="?days=7">7d</a>
+          <a
+            className="hover:text-neutral-900"
+            href={(() => {
+              const qs = new URLSearchParams();
+              qs.set("days", "7");
+              for (const e of envs) qs.append("env", e);
+              return `?${qs.toString()}`;
+            })()}
+          >
+            7d
+          </a>
           {" · "}
-          <a className="hover:text-neutral-900" href="?days=30">30d</a>
+          <a
+            className="hover:text-neutral-900"
+            href={(() => {
+              const qs = new URLSearchParams();
+              qs.set("days", "30");
+              for (const e of envs) qs.append("env", e);
+              return `?${qs.toString()}`;
+            })()}
+          >
+            30d
+          </a>
           {" · "}
-          <a className="hover:text-neutral-900" href="?days=90">90d</a>
+          <a
+            className="hover:text-neutral-900"
+            href={(() => {
+              const qs = new URLSearchParams();
+              qs.set("days", "90");
+              for (const e of envs) qs.append("env", e);
+              return `?${qs.toString()}`;
+            })()}
+          >
+            90d
+          </a>
         </nav>
       </header>
+
+      <section className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+        <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+          Env
+        </span>
+        {availableEnvs.length === 0 ? (
+          <span className="text-neutral-500">no runs yet</span>
+        ) : (
+          availableEnvs.map((e) => {
+            const selected = envs.includes(e);
+            return (
+              <a
+                key={e}
+                href={buildEnvHref(days, envs, e)}
+                className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
+                  selected
+                    ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+                    : "border-neutral-300 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300"
+                }`}
+              >
+                <span className="mr-1">{selected ? "✓" : " "}</span>
+                {e}
+              </a>
+            );
+          })
+        )}
+        {envs.length > 0 && (
+          <a
+            href={buildEnvHref(days, envs, null)}
+            className="text-xs text-neutral-500 underline hover:text-neutral-900"
+          >
+            clear
+          </a>
+        )}
+      </section>
 
       <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
         <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">

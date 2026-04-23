@@ -1,5 +1,20 @@
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "@/db/client";
+
+const envClause = (envs: string[]): SQL =>
+  envs.length > 0
+    ? sql`AND pr.env IN (${sql.join(
+        envs.map((e) => sql`${e}`),
+        sql`, `,
+      )})`
+    : sql``;
+
+export async function fetchAvailableEnvs(): Promise<string[]> {
+  const rows = await db().execute<{ env: string }>(
+    sql`SELECT DISTINCT env FROM pipeline_run ORDER BY env`,
+  );
+  return rows.map((r) => r.env);
+}
 
 export type HeroStat = {
   last24h: number;
@@ -7,17 +22,19 @@ export type HeroStat = {
   delta: number;
 };
 
-export async function fetchHeroStat(): Promise<HeroStat> {
+export async function fetchHeroStat(envs: string[] = []): Promise<HeroStat> {
   const rows = await db().execute<{ last_24h: string | null; prior_24h: string | null }>(
     sql`
       SELECT
-        COALESCE(SUM(CASE WHEN created_at >= now() - interval '24 hours' THEN cost_usd ELSE 0 END), 0) AS last_24h,
+        COALESCE(SUM(CASE WHEN lc.created_at >= now() - interval '24 hours' THEN lc.cost_usd ELSE 0 END), 0) AS last_24h,
         COALESCE(SUM(CASE
-          WHEN created_at >= now() - interval '48 hours'
-           AND created_at <  now() - interval '24 hours'
-          THEN cost_usd ELSE 0 END), 0) AS prior_24h
-      FROM llm_call
-      WHERE created_at >= now() - interval '48 hours'
+          WHEN lc.created_at >= now() - interval '48 hours'
+           AND lc.created_at <  now() - interval '24 hours'
+          THEN lc.cost_usd ELSE 0 END), 0) AS prior_24h
+      FROM llm_call lc
+      JOIN pipeline_run pr ON pr.id = lc.run_id
+      WHERE lc.created_at >= now() - interval '48 hours'
+        ${envClause(envs)}
     `,
   );
   const r = rows[0] ?? { last_24h: "0", prior_24h: "0" };
@@ -32,7 +49,10 @@ export type DailyBreakdownRow = {
   cost: number;
 };
 
-export async function fetchDailyByEnv(days: number): Promise<DailyBreakdownRow[]> {
+export async function fetchDailyByEnv(
+  days: number,
+  envs: string[] = [],
+): Promise<DailyBreakdownRow[]> {
   const rows = await db().execute<{ day: Date; key: string; cost: string | null }>(
     sql`
       SELECT
@@ -42,6 +62,7 @@ export async function fetchDailyByEnv(days: number): Promise<DailyBreakdownRow[]
       FROM llm_call lc
       JOIN pipeline_run pr ON pr.id = lc.run_id
       WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+        ${envClause(envs)}
       GROUP BY day, pr.env
       ORDER BY day ASC
     `,
@@ -53,16 +74,21 @@ export async function fetchDailyByEnv(days: number): Promise<DailyBreakdownRow[]
   }));
 }
 
-export async function fetchDailyByStage(days: number): Promise<DailyBreakdownRow[]> {
+export async function fetchDailyByStage(
+  days: number,
+  envs: string[] = [],
+): Promise<DailyBreakdownRow[]> {
   const rows = await db().execute<{ day: Date; key: string; cost: string | null }>(
     sql`
       SELECT
-        date_trunc('day', created_at AT TIME ZONE 'UTC')::date AS day,
-        stage AS key,
-        COALESCE(SUM(cost_usd), 0) AS cost
-      FROM llm_call
-      WHERE created_at >= now() - (${days}::int * interval '1 day')
-      GROUP BY day, stage
+        date_trunc('day', lc.created_at AT TIME ZONE 'UTC')::date AS day,
+        lc.stage AS key,
+        COALESCE(SUM(lc.cost_usd), 0) AS cost
+      FROM llm_call lc
+      JOIN pipeline_run pr ON pr.id = lc.run_id
+      WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+        ${envClause(envs)}
+      GROUP BY day, lc.stage
       ORDER BY day ASC
     `,
   );
@@ -83,7 +109,11 @@ export type TopRunRow = {
   startedAt: string;
 };
 
-export async function fetchTopRuns(days: number, limit = 20): Promise<TopRunRow[]> {
+export async function fetchTopRuns(
+  days: number,
+  limit = 20,
+  envs: string[] = [],
+): Promise<TopRunRow[]> {
   const rows = await db().execute<{
     id: string;
     name: string;
@@ -104,6 +134,7 @@ export async function fetchTopRuns(days: number, limit = 20): Promise<TopRunRow[
     FROM pipeline_run pr
     JOIN llm_call lc ON lc.run_id = pr.id
     WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+      ${envClause(envs)}
     GROUP BY pr.id
     ORDER BY SUM(lc.cost_usd) DESC NULLS LAST
     LIMIT ${limit}
@@ -126,20 +157,25 @@ export type ParseErrorRateRow = {
   rate: number;
 };
 
-export async function fetchParseErrorRate(days: number): Promise<ParseErrorRateRow[]> {
+export async function fetchParseErrorRate(
+  days: number,
+  envs: string[] = [],
+): Promise<ParseErrorRateRow[]> {
   const rows = await db().execute<{
     stage: string;
     errors: string;
     total: string;
   }>(sql`
     SELECT
-      stage,
-      COUNT(*) FILTER (WHERE parse_error IS NOT NULL)::text AS errors,
+      lc.stage,
+      COUNT(*) FILTER (WHERE lc.parse_error IS NOT NULL)::text AS errors,
       COUNT(*)::text AS total
-    FROM llm_call
-    WHERE created_at >= now() - (${days}::int * interval '1 day')
-    GROUP BY stage
-    ORDER BY stage
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+      ${envClause(envs)}
+    GROUP BY lc.stage
+    ORDER BY lc.stage
   `);
   return rows.map((r) => {
     const errors = Number(r.errors);
@@ -161,7 +197,10 @@ export type LatencyByStageRow = {
   p99: number | null;
 };
 
-export async function fetchLatencyByStage(days: number): Promise<LatencyByStageRow[]> {
+export async function fetchLatencyByStage(
+  days: number,
+  envs: string[] = [],
+): Promise<LatencyByStageRow[]> {
   const rows = await db().execute<{
     stage: string;
     calls: string;
@@ -170,16 +209,18 @@ export async function fetchLatencyByStage(days: number): Promise<LatencyByStageR
     p99: number | null;
   }>(sql`
     SELECT
-      stage,
+      lc.stage,
       COUNT(*)::text AS calls,
-      percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms)::int AS p50,
-      percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::int AS p95,
-      percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::int AS p99
-    FROM llm_call
-    WHERE latency_ms IS NOT NULL
-      AND created_at >= now() - (${days}::int * interval '1 day')
-    GROUP BY stage
-    ORDER BY stage
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY lc.latency_ms)::int AS p50,
+      percentile_cont(0.95) WITHIN GROUP (ORDER BY lc.latency_ms)::int AS p95,
+      percentile_cont(0.99) WITHIN GROUP (ORDER BY lc.latency_ms)::int AS p99
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    WHERE lc.latency_ms IS NOT NULL
+      AND lc.created_at >= now() - (${days}::int * interval '1 day')
+      ${envClause(envs)}
+    GROUP BY lc.stage
+    ORDER BY lc.stage
   `);
   return rows.map((r) => ({
     stage: r.stage,
@@ -197,7 +238,10 @@ export type CacheStatsRow = {
   cacheCreate: number;
 };
 
-export async function fetchCacheStats(days: number): Promise<CacheStatsRow[]> {
+export async function fetchCacheStats(
+  days: number,
+  envs: string[] = [],
+): Promise<CacheStatsRow[]> {
   const rows = await db().execute<{
     model: string;
     input: string | null;
@@ -205,13 +249,15 @@ export async function fetchCacheStats(days: number): Promise<CacheStatsRow[]> {
     cache_create: string | null;
   }>(sql`
     SELECT
-      model,
-      SUM(input_tokens) AS input,
-      SUM(cache_read_tokens) AS cache_read,
-      SUM(cache_create_tokens) AS cache_create
-    FROM llm_call
-    WHERE created_at >= now() - (${days}::int * interval '1 day')
-    GROUP BY model
+      lc.model,
+      SUM(lc.input_tokens) AS input,
+      SUM(lc.cache_read_tokens) AS cache_read,
+      SUM(lc.cache_create_tokens) AS cache_create
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+      ${envClause(envs)}
+    GROUP BY lc.model
   `);
   return rows.map((r) => ({
     model: r.model,
@@ -227,19 +273,24 @@ export type ModelSeenRow = {
   cost: number | null;
 };
 
-export async function fetchModelsSeen(days: number): Promise<ModelSeenRow[]> {
+export async function fetchModelsSeen(
+  days: number,
+  envs: string[] = [],
+): Promise<ModelSeenRow[]> {
   const rows = await db().execute<{
     model: string;
     calls: string;
     cost: string | null;
   }>(sql`
     SELECT
-      model,
+      lc.model,
       COUNT(*)::text AS calls,
-      SUM(cost_usd) AS cost
-    FROM llm_call
-    WHERE created_at >= now() - (${days}::int * interval '1 day')
-    GROUP BY model
+      SUM(lc.cost_usd) AS cost
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    WHERE lc.created_at >= now() - (${days}::int * interval '1 day')
+      ${envClause(envs)}
+    GROUP BY lc.model
     ORDER BY COUNT(*) DESC
   `);
   return rows.map((r) => ({
