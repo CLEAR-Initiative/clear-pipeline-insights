@@ -3,6 +3,7 @@ import {
   fetchDailyByEnv,
   fetchDailyByStage,
   fetchHeroStat,
+  fetchLatencyByStage,
   fetchModelsSeen,
   fetchParseErrorRate,
   fetchTopRuns,
@@ -47,15 +48,23 @@ export default async function DashboardPage({
   const params = await searchParams;
   const days = Math.max(1, Math.min(365, Number(params.days) || 30));
 
-  const [hero, dailyEnvRaw, dailyStageRaw, topRuns, models, parseErrors] =
-    await Promise.all([
-      fetchHeroStat(),
-      fetchDailyByEnv(days),
-      fetchDailyByStage(days),
-      fetchTopRuns(days, 20),
-      fetchModelsSeen(days),
-      fetchParseErrorRate(days),
-    ]);
+  const [
+    hero,
+    dailyEnvRaw,
+    dailyStageRaw,
+    topRuns,
+    models,
+    parseErrors,
+    latency,
+  ] = await Promise.all([
+    fetchHeroStat(),
+    fetchDailyByEnv(days),
+    fetchDailyByStage(days),
+    fetchTopRuns(days, 20),
+    fetchModelsSeen(days),
+    fetchParseErrorRate(days),
+    fetchLatencyByStage(days),
+  ]);
 
   const byEnv = pivot(dailyEnvRaw);
   const byStage = pivot(dailyStageRaw);
@@ -175,6 +184,66 @@ export default async function DashboardPage({
         <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
           <h2 className="mb-3 text-sm font-semibold">$/day by stage</h2>
           <StackedBar data={byStage.data} keys={byStage.keys} />
+        </div>
+      </section>
+
+      <section className="mb-10 rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold dark:border-neutral-800">
+          Latency by stage
+          <span className="ml-2 font-normal text-neutral-500">
+            ms · red when p95 &gt; 5000
+          </span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500 dark:bg-neutral-900">
+              <tr>
+                <th className="px-4 py-2 font-medium">Stage</th>
+                <th className="px-4 py-2 text-right font-medium">Calls</th>
+                <th className="px-4 py-2 text-right font-medium">p50 ms</th>
+                <th className="px-4 py-2 text-right font-medium">p95 ms</th>
+                <th className="px-4 py-2 text-right font-medium">p99 ms</th>
+              </tr>
+            </thead>
+            <tbody>
+              {latency.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={5}
+                    className="px-4 py-6 text-center text-neutral-500"
+                  >
+                    —
+                  </td>
+                </tr>
+              ) : (
+                latency.map((l) => {
+                  const hot = (l.p95 ?? 0) > 5000;
+                  return (
+                    <tr
+                      key={l.stage}
+                      className="border-t border-neutral-100 dark:border-neutral-900"
+                    >
+                      <td className="px-4 py-2 font-mono text-xs">{l.stage}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {l.calls.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {l.p50 === null ? "—" : l.p50.toLocaleString()}
+                      </td>
+                      <td
+                        className={`px-4 py-2 text-right tabular-nums ${hot ? "font-medium text-red-600" : ""}`}
+                      >
+                        {l.p95 === null ? "—" : l.p95.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {l.p99 === null ? "—" : l.p99.toLocaleString()}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
         </div>
       </section>
 

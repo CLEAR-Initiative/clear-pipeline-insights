@@ -153,6 +153,43 @@ export async function fetchParseErrorRate(days: number): Promise<ParseErrorRateR
   });
 }
 
+export type LatencyByStageRow = {
+  stage: string;
+  calls: number;
+  p50: number | null;
+  p95: number | null;
+  p99: number | null;
+};
+
+export async function fetchLatencyByStage(days: number): Promise<LatencyByStageRow[]> {
+  const rows = await db().execute<{
+    stage: string;
+    calls: string;
+    p50: number | null;
+    p95: number | null;
+    p99: number | null;
+  }>(sql`
+    SELECT
+      stage,
+      COUNT(*)::text AS calls,
+      percentile_cont(0.5) WITHIN GROUP (ORDER BY latency_ms)::int AS p50,
+      percentile_cont(0.95) WITHIN GROUP (ORDER BY latency_ms)::int AS p95,
+      percentile_cont(0.99) WITHIN GROUP (ORDER BY latency_ms)::int AS p99
+    FROM llm_call
+    WHERE latency_ms IS NOT NULL
+      AND created_at >= now() - (${days}::int * interval '1 day')
+    GROUP BY stage
+    ORDER BY stage
+  `);
+  return rows.map((r) => ({
+    stage: r.stage,
+    calls: Number(r.calls),
+    p50: r.p50 === null ? null : Number(r.p50),
+    p95: r.p95 === null ? null : Number(r.p95),
+    p99: r.p99 === null ? null : Number(r.p99),
+  }));
+}
+
 export type ModelSeenRow = {
   model: string;
   calls: number;
