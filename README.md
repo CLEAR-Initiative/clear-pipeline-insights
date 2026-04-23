@@ -1,36 +1,107 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# clear-pipeline-insights
 
-## Getting Started
+Dashboard + ingest API for observing every LLM call made by the CLEAR pipeline (and, eventually, Nikita's classifier). One deployed dashboard the team bookmarks; same code runs locally.
 
-First, run the development server:
+**Why this exists:** see `SPEC.md` for the what, and the proposal at `../clear-pipeline/docs/PIPELINE_INSIGHTS_PROPOSAL.md` for the why.
+
+## Stack
+
+- Next.js 16 App Router + React 19 + TypeScript
+- Tailwind v4
+- Postgres + Drizzle ORM
+- Recharts
+
+## Run locally
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
+# edit .env.local: set DATABASE_URL and INSIGHTS_INGEST_TOKEN
+
+npm install
+npm run db:migrate          # apply migrations/0000_init.sql
+npm run dev                 # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dashboard is the `/` route. Data appears once the pipeline starts POSTing to `/api/runs` and `/api/calls`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Ingest API
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Both endpoints require `Authorization: Bearer $INSIGHTS_INGEST_TOKEN`.
 
-## Learn More
+### `POST /api/runs`
 
-To learn more about Next.js, take a look at the following resources:
+Upsert behaviour: if a run with the same `(name, env, pipeline_repo)` has `ended_at IS NULL`, returns the existing one; otherwise inserts a new one.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+curl -X POST http://localhost:3000/api/runs \
+  -H "Authorization: Bearer $INSIGHTS_INGEST_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{"name":"live-prod","env":"prod","pipeline_repo":"clear-pipeline","git_sha":"2d196b3","config":{"claude_model":"claude-sonnet-4-6"}}'
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### `POST /api/calls`
 
-## Deploy on Vercel
+The server computes `cost_usd` from `model` + token counts via [`src/lib/prices.ts`](src/lib/prices.ts) — the pipeline does **not** send cost. New models are added by editing that file and redeploying this repo.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+```bash
+curl -X POST http://localhost:3000/api/calls \
+  -H "Authorization: Bearer $INSIGHTS_INGEST_TOKEN" \
+  -H "content-type: application/json" \
+  -d '{
+    "run_id":"<uuid>",
+    "stage":"classify",
+    "prompt_version":"classify-v1",
+    "model":"claude-sonnet-4-6",
+    "signal_id":"abc123",
+    "system_prompt":"…",
+    "user_prompt":"…",
+    "raw_response":"…",
+    "parsed_response":{"label":"relevant"},
+    "input_tokens":800,
+    "output_tokens":120,
+    "latency_ms":1843
+  }'
+```
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Unknown models insert with `cost_usd = NULL` and are surfaced on the dashboard's "models seen" table so the gap is immediately visible.
+
+## Scripts
+
+| Script | What it does |
+| --- | --- |
+| `npm run dev` | Next dev server |
+| `npm run build` | Production build |
+| `npm run start` | Run the production build |
+| `npm run lint` | ESLint |
+| `npm run db:generate` | Generate a new migration from `src/db/schema.ts` diffs |
+| `npm run db:migrate` | Apply pending migrations |
+| `npm run db:push` | Push schema directly without a migration (dev only) |
+| `npm run db:studio` | Drizzle Studio |
+
+## Layout
+
+```
+src/
+  app/
+    page.tsx                # Phase 1 dashboard
+    stacked-bar.tsx         # Recharts client component
+    api/
+      runs/route.ts         # POST /api/runs
+      calls/route.ts        # POST /api/calls
+  db/
+    schema.ts               # Drizzle schema — contract with clear-pipeline
+    client.ts               # Lazy singleton postgres-js + Drizzle client
+  lib/
+    auth.ts                 # Bearer-token check
+    prices.ts               # MODEL_PRICES + computeCost
+    queries.ts              # Dashboard aggregate queries
+migrations/                 # drizzle-kit migrations
+```
+
+## Deploy
+
+Railway: Postgres + the Next app alongside. Set `DATABASE_URL` and `INSIGHTS_INGEST_TOKEN`, then run `npm run db:migrate` as a release step.
+
+## Scope guardrails
+
+Phase 1 is intentionally small: cost dashboard only. **Do not** build a call browser, rating UI, prompt-version diffs, or run comparison yet — those are Phases 3 and 4 in `SPEC.md`. Schema changes affect at least three writers (`clear-pipeline` prod, staging, and Nikita's classifier), so additive-only.

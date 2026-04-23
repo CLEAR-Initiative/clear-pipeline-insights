@@ -1,65 +1,233 @@
-import Image from "next/image";
+import { MODEL_PRICES } from "@/lib/prices";
+import {
+  fetchDailyByEnv,
+  fetchDailyByStage,
+  fetchHeroStat,
+  fetchModelsSeen,
+  fetchTopRuns,
+  type DailyBreakdownRow,
+} from "@/lib/queries";
+import { StackedBar } from "./stacked-bar";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+const fmtUsd = (n: number | null) =>
+  n === null ? "—" : `$${n.toFixed(n >= 1 ? 2 : 4)}`;
+
+const fmtSignedUsd = (n: number) =>
+  `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(n >= 1 || n <= -1 ? 2 : 4)}`;
+
+function pivot(rows: DailyBreakdownRow[]) {
+  const days = new Set<string>();
+  const keys = new Set<string>();
+  for (const r of rows) {
+    days.add(r.day);
+    keys.add(r.key);
+  }
+  const sortedDays = [...days].sort();
+  const sortedKeys = [...keys].sort();
+  const byDay = new Map<string, Record<string, number>>();
+  for (const r of rows) {
+    const row = byDay.get(r.day) ?? {};
+    row[r.key] = (row[r.key] ?? 0) + r.cost;
+    byDay.set(r.day, row);
+  }
+  return {
+    data: sortedDays.map((day) => ({ day, ...(byDay.get(day) ?? {}) })),
+    keys: sortedKeys,
+  };
+}
+
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ days?: string }>;
+}) {
+  const params = await searchParams;
+  const days = Math.max(1, Math.min(365, Number(params.days) || 30));
+
+  const [hero, dailyEnvRaw, dailyStageRaw, topRuns, models] = await Promise.all([
+    fetchHeroStat(),
+    fetchDailyByEnv(days),
+    fetchDailyByStage(days),
+    fetchTopRuns(days, 20),
+    fetchModelsSeen(days),
+  ]);
+
+  const byEnv = pivot(dailyEnvRaw);
+  const byStage = pivot(dailyStageRaw);
+
+  const pct =
+    hero.prior24h > 0
+      ? ((hero.last24h - hero.prior24h) / hero.prior24h) * 100
+      : null;
+
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
+    <main className="mx-auto max-w-7xl px-6 py-10">
+      <header className="mb-8 flex items-baseline justify-between">
+        <div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Pipeline Insights
           </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+          <p className="text-sm text-neutral-500">
+            LLM call cost & volume — last {days} days
           </p>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+        <nav className="text-sm text-neutral-500">
+          <a className="hover:text-neutral-900" href="?days=7">7d</a>
+          {" · "}
+          <a className="hover:text-neutral-900" href="?days=30">30d</a>
+          {" · "}
+          <a className="hover:text-neutral-900" href="?days=90">90d</a>
+        </nav>
+      </header>
+
+      <section className="mb-10 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
+        <div className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+          Spend — last 24h
         </div>
-      </main>
-    </div>
+        <div className="mt-1 flex items-baseline gap-4">
+          <div className="text-4xl font-semibold tabular-nums">
+            ${hero.last24h.toFixed(2)}
+          </div>
+          <div
+            className={`text-sm tabular-nums ${
+              hero.delta > 0
+                ? "text-red-600"
+                : hero.delta < 0
+                  ? "text-green-600"
+                  : "text-neutral-500"
+            }`}
+          >
+            {fmtSignedUsd(hero.delta)}
+            {pct !== null && <> ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)</>}
+            <span className="text-neutral-500"> vs prior 24h</span>
+          </div>
+        </div>
+      </section>
+
+      <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+          <h2 className="mb-3 text-sm font-semibold">$/day by env</h2>
+          <StackedBar data={byEnv.data} keys={byEnv.keys} />
+        </div>
+        <div className="rounded-lg border border-neutral-200 bg-white p-4 dark:border-neutral-800 dark:bg-neutral-950">
+          <h2 className="mb-3 text-sm font-semibold">$/day by stage</h2>
+          <StackedBar data={byStage.data} keys={byStage.keys} />
+        </div>
+      </section>
+
+      <section className="mb-10 rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold dark:border-neutral-800">
+          Top 20 runs by spend
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500 dark:bg-neutral-900">
+              <tr>
+                <th className="px-4 py-2 font-medium">Name</th>
+                <th className="px-4 py-2 font-medium">Env</th>
+                <th className="px-4 py-2 font-medium">Model</th>
+                <th className="px-4 py-2 text-right font-medium">Calls</th>
+                <th className="px-4 py-2 text-right font-medium">Cost</th>
+                <th className="px-4 py-2 font-medium">Started</th>
+              </tr>
+            </thead>
+            <tbody>
+              {topRuns.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={6}
+                    className="px-4 py-6 text-center text-neutral-500"
+                  >
+                    No runs in this range.
+                  </td>
+                </tr>
+              ) : (
+                topRuns.map((r) => (
+                  <tr
+                    key={r.id}
+                    className="border-t border-neutral-100 dark:border-neutral-900"
+                  >
+                    <td className="px-4 py-2 font-mono">{r.name}</td>
+                    <td className="px-4 py-2">{r.env}</td>
+                    <td className="px-4 py-2 font-mono text-xs">{r.model}</td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {r.calls.toLocaleString()}
+                    </td>
+                    <td className="px-4 py-2 text-right tabular-nums">
+                      {fmtUsd(r.cost)}
+                    </td>
+                    <td className="px-4 py-2 text-xs text-neutral-500">
+                      {new Date(r.startedAt).toISOString().replace("T", " ").slice(0, 16)}
+                    </td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <section className="rounded-lg border border-neutral-200 bg-white dark:border-neutral-800 dark:bg-neutral-950">
+        <h2 className="border-b border-neutral-200 px-4 py-3 text-sm font-semibold dark:border-neutral-800">
+          Models seen
+          <span className="ml-2 font-normal text-neutral-500">
+            rows flagged if the model is missing from <code>src/lib/prices.ts</code>
+          </span>
+        </h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead className="bg-neutral-50 text-left text-xs uppercase tracking-wider text-neutral-500 dark:bg-neutral-900">
+              <tr>
+                <th className="px-4 py-2 font-medium">Model</th>
+                <th className="px-4 py-2 text-right font-medium">Calls</th>
+                <th className="px-4 py-2 text-right font-medium">Cost</th>
+                <th className="px-4 py-2 font-medium">Priced?</th>
+              </tr>
+            </thead>
+            <tbody>
+              {models.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={4}
+                    className="px-4 py-6 text-center text-neutral-500"
+                  >
+                    No calls in this range.
+                  </td>
+                </tr>
+              ) : (
+                models.map((m) => {
+                  const priced = m.model in MODEL_PRICES;
+                  return (
+                    <tr
+                      key={m.model}
+                      className="border-t border-neutral-100 dark:border-neutral-900"
+                    >
+                      <td className="px-4 py-2 font-mono text-xs">{m.model}</td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {m.calls.toLocaleString()}
+                      </td>
+                      <td className="px-4 py-2 text-right tabular-nums">
+                        {fmtUsd(m.cost)}
+                      </td>
+                      <td className="px-4 py-2">
+                        {priced ? (
+                          <span className="text-green-700">yes</span>
+                        ) : (
+                          <span className="font-medium text-red-600">
+                            no — add to prices.ts
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </main>
   );
 }
