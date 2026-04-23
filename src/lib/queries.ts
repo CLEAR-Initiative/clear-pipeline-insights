@@ -190,6 +190,37 @@ export async function fetchLatencyByStage(days: number): Promise<LatencyByStageR
   }));
 }
 
+export type CacheStatsRow = {
+  model: string;
+  input: number;
+  cacheRead: number;
+  cacheCreate: number;
+};
+
+export async function fetchCacheStats(days: number): Promise<CacheStatsRow[]> {
+  const rows = await db().execute<{
+    model: string;
+    input: string | null;
+    cache_read: string | null;
+    cache_create: string | null;
+  }>(sql`
+    SELECT
+      model,
+      SUM(input_tokens) AS input,
+      SUM(cache_read_tokens) AS cache_read,
+      SUM(cache_create_tokens) AS cache_create
+    FROM llm_call
+    WHERE created_at >= now() - (${days}::int * interval '1 day')
+    GROUP BY model
+  `);
+  return rows.map((r) => ({
+    model: r.model,
+    input: Number(r.input ?? 0),
+    cacheRead: Number(r.cache_read ?? 0),
+    cacheCreate: Number(r.cache_create ?? 0),
+  }));
+}
+
 export type ModelSeenRow = {
   model: string;
   calls: number;

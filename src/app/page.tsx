@@ -1,5 +1,6 @@
 import { MODEL_PRICES } from "@/lib/prices";
 import {
+  fetchCacheStats,
   fetchDailyByEnv,
   fetchDailyByStage,
   fetchHeroStat,
@@ -7,6 +8,7 @@ import {
   fetchModelsSeen,
   fetchParseErrorRate,
   fetchTopRuns,
+  type CacheStatsRow,
   type DailyBreakdownRow,
 } from "@/lib/queries";
 import { StackedBar } from "./stacked-bar";
@@ -18,6 +20,30 @@ const fmtUsd = (n: number | null) =>
 
 const fmtSignedUsd = (n: number) =>
   `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(n >= 1 || n <= -1 ? 2 : 4)}`;
+
+function summarizeCache(rows: CacheStatsRow[]) {
+  let totalInput = 0;
+  let totalCacheRead = 0;
+  let totalCacheCreate = 0;
+  let savings = 0;
+  for (const r of rows) {
+    totalInput += r.input;
+    totalCacheRead += r.cacheRead;
+    totalCacheCreate += r.cacheCreate;
+    const price = MODEL_PRICES[r.model];
+    if (!price) continue;
+    const perToken = price.input - (price.cacheRead ?? 0);
+    savings += (r.cacheRead * perToken) / 1_000_000;
+  }
+  const denom = totalInput + totalCacheRead;
+  const hitRatio = denom > 0 ? totalCacheRead / denom : null;
+  return {
+    hitRatio,
+    cacheRead: totalCacheRead,
+    cacheCreate: totalCacheCreate,
+    savings: Number(savings.toFixed(4)),
+  };
+}
 
 function pivot(rows: DailyBreakdownRow[]) {
   const days = new Set<string>();
@@ -56,6 +82,7 @@ export default async function DashboardPage({
     models,
     parseErrors,
     latency,
+    cacheRaw,
   ] = await Promise.all([
     fetchHeroStat(),
     fetchDailyByEnv(days),
@@ -64,7 +91,9 @@ export default async function DashboardPage({
     fetchModelsSeen(days),
     fetchParseErrorRate(days),
     fetchLatencyByStage(days),
+    fetchCacheStats(days),
   ]);
+  const cache = summarizeCache(cacheRaw);
 
   const byEnv = pivot(dailyEnvRaw);
   const byStage = pivot(dailyStageRaw);
@@ -94,26 +123,48 @@ export default async function DashboardPage({
         </nav>
       </header>
 
-      <section className="mb-10 rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
-        <div className="text-xs font-medium uppercase tracking-wider text-neutral-500">
-          Spend — last 24h
-        </div>
-        <div className="mt-1 flex items-baseline gap-4">
-          <div className="text-4xl font-semibold tabular-nums">
-            ${hero.last24h.toFixed(2)}
+      <section className="mb-10 grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+            Spend — last 24h
           </div>
-          <div
-            className={`text-sm tabular-nums ${
-              hero.delta > 0
-                ? "text-red-600"
-                : hero.delta < 0
-                  ? "text-green-600"
-                  : "text-neutral-500"
-            }`}
-          >
-            {fmtSignedUsd(hero.delta)}
-            {pct !== null && <> ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)</>}
-            <span className="text-neutral-500"> vs prior 24h</span>
+          <div className="mt-1 flex items-baseline gap-4">
+            <div className="text-4xl font-semibold tabular-nums">
+              ${hero.last24h.toFixed(2)}
+            </div>
+            <div
+              className={`text-sm tabular-nums ${
+                hero.delta > 0
+                  ? "text-red-600"
+                  : hero.delta < 0
+                    ? "text-green-600"
+                    : "text-neutral-500"
+              }`}
+            >
+              {fmtSignedUsd(hero.delta)}
+              {pct !== null && <> ({pct >= 0 ? "+" : ""}{pct.toFixed(1)}%)</>}
+              <span className="text-neutral-500"> vs prior 24h</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="rounded-lg border border-neutral-200 bg-white p-6 dark:border-neutral-800 dark:bg-neutral-950">
+          <div className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+            Prompt caching — last {days}d
+          </div>
+          <div className="mt-1 flex items-baseline gap-4">
+            <div className="text-4xl font-semibold tabular-nums">
+              {cache.hitRatio === null
+                ? "—"
+                : `${(cache.hitRatio * 100).toFixed(1)}%`}
+            </div>
+            <div className="text-sm tabular-nums text-green-700">
+              ~${cache.savings.toFixed(2)} saved
+            </div>
+          </div>
+          <div className="mt-2 text-xs text-neutral-500 tabular-nums">
+            {cache.cacheRead.toLocaleString()} read ·{" "}
+            {cache.cacheCreate.toLocaleString()} created
           </div>
         </div>
       </section>
