@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { fmtSignedUsd, fmtUsd, pivot, summarizeCache } from "@/lib/dashboard";
 import { MODEL_PRICES } from "@/lib/prices";
 import {
   fetchAvailableEnvs,
@@ -9,63 +11,10 @@ import {
   fetchModelsSeen,
   fetchParseErrorRate,
   fetchTopRuns,
-  type CacheStatsRow,
-  type DailyBreakdownRow,
 } from "@/lib/queries";
 import { StackedBar } from "./stacked-bar";
 
 export const dynamic = "force-dynamic";
-
-const fmtUsd = (n: number | null) =>
-  n === null ? "—" : `$${n.toFixed(n >= 1 ? 2 : 4)}`;
-
-const fmtSignedUsd = (n: number) =>
-  `${n >= 0 ? "+" : "−"}$${Math.abs(n).toFixed(n >= 1 || n <= -1 ? 2 : 4)}`;
-
-function summarizeCache(rows: CacheStatsRow[]) {
-  let totalInput = 0;
-  let totalCacheRead = 0;
-  let totalCacheCreate = 0;
-  let savings = 0;
-  for (const r of rows) {
-    totalInput += r.input;
-    totalCacheRead += r.cacheRead;
-    totalCacheCreate += r.cacheCreate;
-    const price = MODEL_PRICES[r.model];
-    if (!price) continue;
-    const perToken = price.input - (price.cacheRead ?? 0);
-    savings += (r.cacheRead * perToken) / 1_000_000;
-  }
-  const denom = totalInput + totalCacheRead;
-  const hitRatio = denom > 0 ? totalCacheRead / denom : null;
-  return {
-    hitRatio,
-    cacheRead: totalCacheRead,
-    cacheCreate: totalCacheCreate,
-    savings: Number(savings.toFixed(4)),
-  };
-}
-
-function pivot(rows: DailyBreakdownRow[]) {
-  const days = new Set<string>();
-  const keys = new Set<string>();
-  for (const r of rows) {
-    days.add(r.day);
-    keys.add(r.key);
-  }
-  const sortedDays = [...days].sort();
-  const sortedKeys = [...keys].sort();
-  const byDay = new Map<string, Record<string, number>>();
-  for (const r of rows) {
-    const row = byDay.get(r.day) ?? {};
-    row[r.key] = (row[r.key] ?? 0) + r.cost;
-    byDay.set(r.day, row);
-  }
-  return {
-    data: sortedDays.map((day) => ({ day, ...(byDay.get(day) ?? {}) })),
-    keys: sortedKeys,
-  };
-}
 
 function buildEnvHref(
   days: number,
@@ -99,6 +48,7 @@ export default async function DashboardPage({
       ? [params.env]
       : [];
 
+  const windowSeconds = days * 86_400;
   const [
     availableEnvs,
     hero,
@@ -111,14 +61,14 @@ export default async function DashboardPage({
     cacheRaw,
   ] = await Promise.all([
     fetchAvailableEnvs(),
-    fetchHeroStat(envs),
-    fetchDailyByEnv(days, envs),
-    fetchDailyByStage(days, envs),
-    fetchTopRuns(days, 20, envs),
-    fetchModelsSeen(days, envs),
-    fetchParseErrorRate(days, envs),
-    fetchLatencyByStage(days, envs),
-    fetchCacheStats(days, envs),
+    fetchHeroStat(86_400, envs),
+    fetchDailyByEnv(windowSeconds, envs),
+    fetchDailyByStage(windowSeconds, envs),
+    fetchTopRuns(windowSeconds, 20, envs),
+    fetchModelsSeen(windowSeconds, envs),
+    fetchParseErrorRate(windowSeconds, envs),
+    fetchLatencyByStage(windowSeconds, envs),
+    fetchCacheStats(windowSeconds, envs),
   ]);
   const cache = summarizeCache(cacheRaw);
 
@@ -126,9 +76,7 @@ export default async function DashboardPage({
   const byStage = pivot(dailyStageRaw);
 
   const pct =
-    hero.prior24h > 0
-      ? ((hero.last24h - hero.prior24h) / hero.prior24h) * 100
-      : null;
+    hero.prior > 0 ? ((hero.current - hero.prior) / hero.prior) * 100 : null;
 
   return (
     <main className="mx-auto max-w-7xl px-6 py-10">
@@ -178,6 +126,10 @@ export default async function DashboardPage({
           >
             90d
           </a>
+          {" · "}
+          <Link className="hover:text-neutral-900" href="/live">
+            live →
+          </Link>
         </nav>
       </header>
 
@@ -223,7 +175,7 @@ export default async function DashboardPage({
           </div>
           <div className="mt-1 flex items-baseline gap-4">
             <div className="text-4xl font-semibold tabular-nums">
-              ${hero.last24h.toFixed(2)}
+              ${hero.current.toFixed(2)}
             </div>
             <div
               className={`text-sm tabular-nums ${
