@@ -1,35 +1,66 @@
-# Quality Review Strategy — clear-pipeline-insights
+# Data Pipeline Quality Review Strategy `clear-pipeline-insights`
 
-> **Status**: draft for team feedback · 2026-04-24 · owner: James
+---
 
 ## Problem
 
-We're spending real money on Claude calls across **classify**, **group**, and **assess** stages in the pipeline. Nobody on the team has defined what "good" looks like for any of those stages — and the tool for defining it (humans rating concrete decisions) doesn't exist yet. We also have Nikita building a classifier that will eventually replace Claude, but no substrate to compare them on.
+The data pipeline has multiple distinct steps with each multiple functions needed per step. We currently have no measure of performance or cost per pipeline step or step-function. This way systematic improvement and cost control is unachievable.
 
-This strategy says: **build the review surface in insights, stage the work so each phase is independently valuable, and let "good" emerge from real ratings rather than trying to specify it up front.**
+This becomes evident as example in:
 
-## Where data lives — and why ratings live here
+- No one has defined what "good" looks like
+- There's no tooling for humans to rate decisions
+- Proprietary classifier has no comparison baseline
 
-Two existing data stores already carry pipeline state:
+**Core idea:**
 
-- **clear-api** — owns events, signals, cluster membership. The domain truth. Used by the main CLEAR app and field teams.
-- **clear-pipeline-insights** (this repo) — owns every LLM call's prompt, response, usage, cost, latency. The observability truth. Used by engineers working on the pipeline.
+> Build the review surface first, stage the work so each phase is independently useful, and let "good" emerge from real human ratings — not upfront definitions.
 
-**Ratings go here, not in clear-api**, because:
+---
 
-1. **Audience**. This tool is for engineers evaluating the pipeline (James, Prajava, Nikita). Not field teams acting on alerts. clear-api's existing `user_interactions` on alerts is a different signal for a different audience — we don't merge them.
-2. **Nikita's classifier only exists in insights** (`env='local-nikita'`). Ratings in clear-api would strand half the comparison data.
-3. **Call-level ratings are keyed on `llm_call.id`** — that row doesn't exist in clear-api.
+## Where Data Lives — and Why Ratings Live Here
 
-clear-api stays the source of truth for **cluster shape**. Insights becomes the source of truth for **cluster quality**.
+### Existing systems
 
-## Long-term data flow
+- **`clear-api`**
+    - Owns: events, signals, cluster membership
+    - Role: domain truth (used by field teams)
+- **`clear-pipeline-insights`**
+    - Owns: LLM calls (prompt, response, cost, latency)
+    - Role: observability + evaluation (used by engineers)
+- **`clear-pipeline`**
+    - Owns: the execution of pipeline steps and step functions (clustering, scoring, text generation)
+    - Role: process noisy input to provide consumable truth
+
+---
+
+### Why ratings live in insights (not clear-api)
+
+1. **Different audience**
+    - Insights → engineers evaluating pipeline quality
+    - clear-api → field teams acting on alerts
+2. **Different building blocks of the pipeline (e.g. classifiers, scorings, decision makers, generative tools, filters, etc.) live in different stages and repos**
+    - (`env = local-model`)
+    - clear-api would miss everything that is not already built into dev or staging, stranding half the comparison data
+3. **Ratings are keyed on `llm_call.id`**
+    - This entity doesn't exist in clear-api
+
+---
+
+### Separation of concerns
+
+- **clear-api → cluster shape (truth)**
+- **insights → cluster quality (evaluation)**
+
+---
+
+## Long-Term Data Flow
 
 ```mermaid
 flowchart LR
     subgraph Sources
       PIPE["clear-pipeline<br/>prod + staging"]
-      NIK["Nikita's classifier<br/>local-nikita"]
+      NIK["Locally run classifier<br/>local-classifier"]
     end
 
     subgraph CA["clear-api"]
@@ -39,107 +70,153 @@ flowchart LR
     subgraph INS["clear-pipeline-insights"]
       LC[("llm_call<br/>pipeline_run")]
       CR[("call_rating<br/>event_rating")]
-      IE[("imported_event<br/>imported_signal<br/>ephemeral mirror")]
+      IE[("imported_event<br/>imported_signal")]
     end
 
-    PIPE -- "GraphQL<br/>createEvent / updateEvent" --> CA
-    PIPE -- "POST /api/calls<br/>telemetry" --> LC
-    NIK  -- "POST /api/calls<br/>telemetry" --> LC
+    PIPE --> CA
+    PIPE --> LC
+    NIK  --> LC
 
-    CA -. "GraphQL read<br/>on Import" .-> IE
+    CA -. read .-> IE
     LC <--> CR
     IE <--> CR
-
-    style INS fill:#f0f9ff,stroke:#0284c7
-    style CA fill:#fef3c7,stroke:#d97706
 ```
 
-Dashed line = insights reads clear-api on demand only. No shared database, no background sync, no cross-repo schema coupling at the DB layer.
+**Key principle:**
 
-## Two review loops, composable
+- Insights *reads* from clear-api on demand
+- No shared DB
+- No schema coupling
+
+---
+
+## Two Review Loops (Composable)
 
 ```mermaid
 flowchart TB
-    subgraph Call["call-level review · Phase 3a · shipped"]
-      direction LR
-      C1["list group-stage<br/>llm_call rows"] --> C2["rate each<br/>decision"]
+    subgraph Call["Call-level review (Phase 3a)"]
+      C1["List group-stage calls"] --> C2["Rate decisions"]
       C2 --> C3[("call_rating")]
     end
 
-    subgraph Cluster["cluster-level review · Phase 3b · proposed"]
-      direction LR
-      E1["Import last 7d of events<br/>from clear-api"] --> E2["list events +<br/>member signals"]
-      E2 --> E3["rate the cluster<br/>as a whole"]
+    subgraph Cluster["Cluster-level review (Phase 3b)"]
+      E1["Import events"] --> E2["View clusters"]
+      E2 --> E3["Rate cluster"]
       E3 --> E4[("event_rating")]
       E2 -. drill-in .-> C1
     end
 
-    subgraph Compare["run comparison · Phase 4"]
-      direction LR
-      X1["join Claude vs Nikita<br/>llm_calls on signal_id"]
-      X1 --> X2["rate disagreement:<br/>who's right?"]
+    subgraph Compare["Run comparison (Phase 4)"]
+      X1["Join Claude vs Local Classifier model"] --> X2["Rate disagreement"]
     end
 
     Call --> Cluster
     Cluster --> Compare
 ```
 
-The loops compose: on an event detail page you can drill into its constituent `stage='group'` llm_calls, see both the per-call verdicts and the event-level verdict, and surface conflicts (event rated "good" but three of its group calls rated "wrong group"). That surfacing is where the definition of "good" actually gets built.
+---
 
-## Import / Clear UX for Phase 3b
+### Key Insight
 
-The cluster-level review page does not try to subscribe to clear-api in real time. Instead:
+- **Call-level** → catches local reasoning errors
+- **Cluster-level** → catches systemic "this doesn't hang together" issues
+
+The system becomes powerful when both are visible **together**.
+
+---
+
+## Import / Clear UX (Phase 3b)
 
 ```mermaid
 sequenceDiagram
     actor R as Reviewer
     participant UI as /review/events
-    participant CA as clear-api (GraphQL)
-    participant IE as imported_event (insights)
+    participant CA as clear-api
+    participant IE as insights DB
 
-    R->>UI: click "Import last 7 days"
-    UI->>CA: events(since, limit) { signals { ... } }
-    CA-->>UI: 42 events, 518 signals
-    UI->>IE: INSERT
-    UI-->>R: 42 events ready to rate
+    R->>UI: Import last 7 days
+    UI->>CA: Fetch events + signals
+    CA-->>UI: Data
+    UI->>IE: Insert
 
-    R->>UI: rate events, leave notes
-    UI->>IE: write event_rating rows
+    R->>UI: Rate events
+    UI->>IE: Save ratings
 
-    R->>UI: click "Clear import"
-    UI->>IE: DELETE imported_*
-    Note over IE: ratings remain<br/>(keyed on event_id, not import)
+    R->>UI: Clear import
+    UI->>IE: Delete imported data
 ```
 
-Ratings are keyed on `event_id`, so clearing an import doesn't delete the reviewer's work — if the same event is re-imported later, its existing rating attaches again.
+### Important detail
 
-## Phase plan
+- Ratings are keyed on `event_id`
+- Clearing imports **does not delete ratings**
+- Re-imported events retain prior ratings
 
-| Phase | What | Status |
-|---|---|---|
-| 1 | Cost observability — 24h hero, $/day by env & stage, top runs, models-seen | ✅ shipped |
-| 2 | Liveness — `/live`, latency percentiles, parse-error rates, cache savings | ✅ shipped |
-| 3a | Call-level grouping review — `/review/group` with verdict widget | ✅ shipped |
-| 3b | Cluster-level event review — `/review/events`, Import/Clear from clear-api | **proposed** |
-| 3c | Extend call-level review to `classify` and `assess` stages | deferred |
-| 4  | Run comparison — side-by-side Claude vs Nikita on same `signal_id` | planned |
+---
 
-## Open questions for the team
+## Phase Plan
 
-1. **Is the call-level vs cluster-level split right?** Call-level catches local errors in Claude's reasoning; cluster-level catches "the whole thing doesn't hang together." Do we want both (proposed), or one?
-2. **Phase 3b import source — clear-api GraphQL or direct DB read?** GraphQL respects clear-api as data owner but may need new queries added on its side. Direct DB read is faster to ship but couples us to clear-api's physical schema.
-3. **Verdict vocabulary for grouping — `correct / wrong_group / should_be_new / should_have_merged / unclear`**. Right granularity? Missing anything?
-4. **Single-rater vs multi-rater?** Rater is currently hardcoded `'james'`. When Prajava and Nikita rate the same decision, do we want agreement/disagreement visible, or last-write-wins?
-5. **When does Nikita's classifier start writing to insights?** Phase 4 is gated on this. A 20-min schema review with him is already tracked (bead `clear-pipeline-insights-n1v`).
+| Phase | Description | Status |
+| --- | --- | --- |
+| 1 | Cost observability | ✅ shipped |
+| 2 | Liveness + latency metrics | ✅ shipped |
+| 3a | Call-level review (`/review/group`) | ✅ shipped |
+| 3b | Cluster-level review (`/review/events`) | 🚧 proposed |
+| 3c | Extend review to classify + assess | ⏳ deferred |
+| 4 | Claude vs Local model comparison | 📌 planned |
 
-## Non-goals (deliberate)
+---
 
-- **Defining "quality" before we have ratings.** That's the output of this work, not an input.
-- **Field-team-facing ratings.** Those belong in clear-api, alongside the go/no-go feedback that already exists there.
-- **Automated quality scoring.** Every score runs through a human until we have enough ratings to know what's worth scoring against.
+## Open Questions
 
-## What would change my mind
+1. **Do we want both review layers?**
+    - Call-level (micro)
+    - Cluster-level (macro)
+2. **Import source for Phase 3b**
+    - GraphQL (clean, slower)
+    - Direct DB (fast, tightly coupled)
+3. **Verdict vocabulary**
+    - `correct`
+    - `wrong_group`
+    - `should_be_new`
+    - `should_have_merged`
+    - `unclear`
 
-- If field teams want to rate clustering quality too → ratings may need to live in clear-api (or be mirrored there). Today's read: no signal they do.
-- If clear-api gets a general-purpose "feedback on X" system → we might use it instead of rolling our own. Today's read: it has `user_interactions` on alerts only, scoped to field teams.
-- If Nikita's classifier moves off-laptop into production → `env='local-nikita'` becomes something else and Phase 4 joins get simpler.
+    → Missing anything?
+4. **Single vs multi-rater**
+    - Current: `rater = 'james'`
+    - Future: show disagreement or last-write-wins?
+5. **Local model integration timing**
+    - Needed for Phase 4
+    - Pending schema alignment
+
+---
+
+## Non-Goals (Deliberate)
+
+- ❌ Defining "quality" upfront
+- ❌ Field-team-facing ratings
+- ❌ Automated scoring
+
+> Every score is human-first until we have enough data to automate.
+
+---
+
+## What Would Change This Approach
+
+- Field teams want to rate cluster quality → ratings may move to clear-api
+- clear-api introduces a generic feedback system → reuse instead of building
+- Local classifier moves to production → simplifies comparison logic
+
+---
+
+## TL;DR
+
+- Build **review tooling first**, not definitions
+- Separate:
+    - **Truth (clear-api)**
+    - **Evaluation (insights)**
+- Use:
+    - Call-level review (micro errors)
+    - Cluster-level review (system coherence)
+- Let "good" emerge from **real human judgments over time**
