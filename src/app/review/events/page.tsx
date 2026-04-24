@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { desc, inArray, sql } from "drizzle-orm";
+import { TopNav } from "@/components/top-nav";
 import { db } from "@/db/client";
 import { eventRating, importedEvent, importedSignal } from "@/db/schema";
 import { ImportControls } from "./import-controls";
@@ -62,8 +62,9 @@ export default async function ReviewEventsPage() {
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <header className="mb-6 flex items-baseline justify-between">
-        <div>
+      <header className="mb-6">
+        <TopNav currentPath="/review/events" />
+        <div className="mt-4">
           <h1 className="text-2xl font-semibold tracking-tight">
             Cluster review
           </h1>
@@ -71,23 +72,6 @@ export default async function ReviewEventsPage() {
             Import recent events from clear-api and rate each cluster as a whole.
           </p>
         </div>
-        <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            ← dashboard
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/review/group" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            call-level review
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/review/ratings/james" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            my ratings
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/review/ratings/aggregate" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            all reviewers
-          </Link>
-        </nav>
       </header>
 
       <ImportControls hasImports={events.length > 0} />

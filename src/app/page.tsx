@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TopNav } from "@/components/top-nav";
 import { fmtSignedUsd, fmtUsd, pivot, summarizeCache } from "@/lib/dashboard";
 import { MODEL_PRICES } from "@/lib/prices";
 import {
@@ -32,6 +32,13 @@ function buildEnvHref(
   const qs = new URLSearchParams();
   qs.set("days", String(days));
   for (const e of next) qs.append("env", e);
+  return `?${qs.toString()}`;
+}
+
+function buildDaysHref(days: number, envs: string[]): string {
+  const qs = new URLSearchParams();
+  qs.set("days", String(days));
+  for (const e of envs) qs.append("env", e);
   return `?${qs.toString()}`;
 }
 
@@ -79,9 +86,10 @@ export default async function DashboardPage({
     hero.prior > 0 ? ((hero.current - hero.prior) / hero.prior) * 100 : null;
 
   return (
-    <main className="mx-auto max-w-7xl px-6 py-10">
-      <header className="mb-8 flex items-baseline justify-between">
-        <div>
+    <main className="mx-auto max-w-5xl px-6 py-10">
+      <header className="mb-8">
+        <TopNav currentPath="/" />
+        <div className="mt-4">
           <h1 className="text-2xl font-semibold tracking-tight">
             Pipeline Insights
           </h1>
@@ -90,59 +98,30 @@ export default async function DashboardPage({
             {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
           </p>
         </div>
-        <nav className="text-sm text-neutral-500">
-          <a
-            className="hover:text-neutral-900 dark:hover:text-neutral-100"
-            href={(() => {
-              const qs = new URLSearchParams();
-              qs.set("days", "7");
-              for (const e of envs) qs.append("env", e);
-              return `?${qs.toString()}`;
-            })()}
-          >
-            7d
-          </a>
-          {" · "}
-          <a
-            className="hover:text-neutral-900 dark:hover:text-neutral-100"
-            href={(() => {
-              const qs = new URLSearchParams();
-              qs.set("days", "30");
-              for (const e of envs) qs.append("env", e);
-              return `?${qs.toString()}`;
-            })()}
-          >
-            30d
-          </a>
-          {" · "}
-          <a
-            className="hover:text-neutral-900 dark:hover:text-neutral-100"
-            href={(() => {
-              const qs = new URLSearchParams();
-              qs.set("days", "90");
-              for (const e of envs) qs.append("env", e);
-              return `?${qs.toString()}`;
-            })()}
-          >
-            90d
-          </a>
-          {" · "}
-          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/live">
-            live →
-          </Link>
-          {" · "}
-          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/review/group">
-            call review →
-          </Link>
-          {" · "}
-          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/review/events">
-            cluster review →
-          </Link>
-        </nav>
       </header>
 
       <section className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         <span className="text-xs font-medium uppercase tracking-wider text-neutral-500">
+          Window
+        </span>
+        {[7, 30, 90].map((d) => {
+          const selected = days === d;
+          return (
+            <a
+              key={d}
+              href={buildDaysHref(d, envs)}
+              className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
+                selected
+                  ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
+                  : "border-neutral-300 text-neutral-600 hover:border-neutral-400 dark:border-neutral-700 dark:text-neutral-300"
+              }`}
+            >
+              {d}d
+            </a>
+          );
+        })}
+
+        <span className="ml-4 text-xs font-medium uppercase tracking-wider text-neutral-500">
           Env
         </span>
         {availableEnvs.length === 0 ? (

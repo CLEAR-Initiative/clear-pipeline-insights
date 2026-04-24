@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { and, desc, eq, sql } from "drizzle-orm";
+import { TopNav } from "@/components/top-nav";
 import { db } from "@/db/client";
 import { eventRating, importedEvent } from "@/db/schema";
 
@@ -105,10 +106,11 @@ export default async function AggregateRatingsPage({
 
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
-      <header className="mb-6 flex items-baseline justify-between">
-        <div>
+      <header className="mb-6">
+        <TopNav currentPath="/review/ratings/aggregate" />
+        <div className="mt-4">
           <h1 className="text-2xl font-semibold tracking-tight">
-            Ratings — all reviewers
+            All ratings
           </h1>
           <p className="text-sm text-neutral-500">
             {rows.length} rated event{rows.length === 1 ? "" : "s"} shown · {allRaters.length}{" "}
@@ -116,19 +118,6 @@ export default async function AggregateRatingsPage({
             disagreement
           </p>
         </div>
-        <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            ← dashboard
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/review/events" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            cluster review
-          </Link>
-          <span className="mx-2">·</span>
-          <Link href="/review/ratings/james" className="hover:text-neutral-900 dark:hover:text-neutral-100">
-            my ratings
-          </Link>
-        </nav>
       </header>
 
       <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import { TopNav } from "@/components/top-nav";
 import { fmtSignedUsd, fmtUsd, summarizeCache } from "@/lib/dashboard";
 import { MODEL_PRICES } from "@/lib/prices";
 import {
@@ -68,9 +68,10 @@ export default async function LivePage({
   return (
     <>
       <meta httpEquiv="refresh" content={String(REFRESH_SECONDS)} />
-      <main className="mx-auto max-w-7xl px-6 py-10">
-        <header className="mb-8 flex items-baseline justify-between">
-          <div>
+      <main className="mx-auto max-w-5xl px-6 py-10">
+        <header className="mb-8">
+          <TopNav currentPath="/live" />
+          <div className="mt-4">
             <h1 className="text-2xl font-semibold tracking-tight">
               Live — last 60 minutes
               <span className="ml-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500 align-middle" />
@@ -81,11 +82,6 @@ export default async function LivePage({
               {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
             </p>
           </div>
-          <nav className="text-sm text-neutral-500">
-            <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/">
-              ← dashboard
-            </Link>
-          </nav>
         </header>
 
         <section className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
