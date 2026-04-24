@@ -130,6 +130,10 @@ export default async function DashboardPage({
           <Link className="hover:text-neutral-900" href="/live">
             live →
           </Link>
+          {" · "}
+          <Link className="hover:text-neutral-900" href="/review/group">
+            review →
+          </Link>
         </nav>
       </header>
 

@@ -278,6 +278,160 @@ export type ModelSeenRow = {
   cost: number | null;
 };
 
+export type GroupCallReviewRow = {
+  callId: string;
+  createdAt: string;
+  env: string;
+  promptVersion: string;
+  model: string;
+  signalId: string | null;
+  eventId: string | null;
+  parsedResponse: unknown;
+  parseError: string | null;
+  userPrompt: string;
+  rawResponse: string;
+  verdict: string | null;
+  confidence: number | null;
+  notes: string | null;
+  ratingCreatedAt: string | null;
+};
+
+export async function fetchGroupCallsForReview(params: {
+  envs: string[];
+  fromSeconds: number;
+  unratedOnly: boolean;
+  promptVersion?: string | null;
+  limit: number;
+}): Promise<GroupCallReviewRow[]> {
+  const envClauseLocal =
+    params.envs.length > 0
+      ? sql`AND pr.env IN (${sql.join(
+          params.envs.map((e) => sql`${e}`),
+          sql`, `,
+        )})`
+      : sql``;
+  const unratedClause = params.unratedOnly ? sql`AND cr.id IS NULL` : sql``;
+  const promptClause = params.promptVersion
+    ? sql`AND lc.prompt_version = ${params.promptVersion}`
+    : sql``;
+
+  const rows = await db().execute<{
+    call_id: string;
+    created_at: Date;
+    env: string;
+    prompt_version: string;
+    model: string;
+    signal_id: string | null;
+    event_id: string | null;
+    parsed_response: unknown;
+    parse_error: string | null;
+    user_prompt: string;
+    raw_response: string;
+    verdict: string | null;
+    confidence: number | null;
+    notes: string | null;
+    rating_created_at: Date | null;
+  }>(sql`
+    SELECT
+      lc.id AS call_id,
+      lc.created_at,
+      pr.env,
+      lc.prompt_version,
+      lc.model,
+      lc.signal_id,
+      lc.event_id,
+      lc.parsed_response,
+      lc.parse_error,
+      lc.user_prompt,
+      lc.raw_response,
+      cr.verdict,
+      cr.confidence,
+      cr.notes,
+      cr.created_at AS rating_created_at
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = 'james'
+    WHERE lc.stage = 'group'
+      AND lc.created_at >= now() - (${params.fromSeconds}::int * interval '1 second')
+      ${envClauseLocal}
+      ${promptClause}
+      ${unratedClause}
+    ORDER BY lc.created_at DESC
+    LIMIT ${params.limit}
+  `);
+
+  return rows.map((r) => ({
+    callId: r.call_id,
+    createdAt: new Date(r.created_at).toISOString(),
+    env: r.env,
+    promptVersion: r.prompt_version,
+    model: r.model,
+    signalId: r.signal_id,
+    eventId: r.event_id,
+    parsedResponse: r.parsed_response,
+    parseError: r.parse_error,
+    userPrompt: r.user_prompt,
+    rawResponse: r.raw_response,
+    verdict: r.verdict,
+    confidence: r.confidence === null ? null : Number(r.confidence),
+    notes: r.notes,
+    ratingCreatedAt:
+      r.rating_created_at === null
+        ? null
+        : new Date(r.rating_created_at).toISOString(),
+  }));
+}
+
+export type GroupReviewCounts = {
+  total: number;
+  unrated: number;
+};
+
+export async function fetchGroupReviewCounts(params: {
+  envs: string[];
+  fromSeconds: number;
+  promptVersion?: string | null;
+}): Promise<GroupReviewCounts> {
+  const envClauseLocal =
+    params.envs.length > 0
+      ? sql`AND pr.env IN (${sql.join(
+          params.envs.map((e) => sql`${e}`),
+          sql`, `,
+        )})`
+      : sql``;
+  const promptClause = params.promptVersion
+    ? sql`AND lc.prompt_version = ${params.promptVersion}`
+    : sql``;
+
+  const rows = await db().execute<{ total: string; unrated: string }>(sql`
+    SELECT
+      COUNT(*)::text AS total,
+      COUNT(*) FILTER (WHERE cr.id IS NULL)::text AS unrated
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = 'james'
+    WHERE lc.stage = 'group'
+      AND lc.created_at >= now() - (${params.fromSeconds}::int * interval '1 second')
+      ${envClauseLocal}
+      ${promptClause}
+  `);
+  const r = rows[0] ?? { total: "0", unrated: "0" };
+  return { total: Number(r.total), unrated: Number(r.unrated) };
+}
+
+export async function fetchGroupPromptVersions(
+  fromSeconds: number,
+): Promise<string[]> {
+  const rows = await db().execute<{ prompt_version: string }>(sql`
+    SELECT DISTINCT prompt_version
+    FROM llm_call
+    WHERE stage = 'group'
+      AND created_at >= now() - (${fromSeconds}::int * interval '1 second')
+    ORDER BY prompt_version
+  `);
+  return rows.map((r) => r.prompt_version);
+}
+
 export async function fetchModelsSeen(
   windowSeconds: number,
   envs: string[] = [],

@@ -5,8 +5,10 @@ import {
   jsonb,
   numeric,
   pgTable,
+  smallint,
   text,
   timestamp,
+  unique,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -59,7 +61,38 @@ export const llmCall = pgTable(
   ],
 );
 
+export const callRating = pgTable(
+  "call_rating",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    callId: uuid()
+      .notNull()
+      .references(() => llmCall.id, { onDelete: "cascade" }),
+    rater: text().notNull().default("james"),
+    verdict: text().notNull(),
+    confidence: smallint(),
+    notes: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("call_rating_call_rater_key").on(t.callId, t.rater),
+    index("call_rating_created_idx").on(t.createdAt.desc()),
+    index("call_rating_call_idx").on(t.callId),
+  ],
+);
+
 export type PipelineRun = typeof pipelineRun.$inferSelect;
 export type NewPipelineRun = typeof pipelineRun.$inferInsert;
 export type LlmCall = typeof llmCall.$inferSelect;
 export type NewLlmCall = typeof llmCall.$inferInsert;
+export type CallRating = typeof callRating.$inferSelect;
+export type NewCallRating = typeof callRating.$inferInsert;
+
+export const VERDICTS = [
+  "correct",
+  "wrong_group",
+  "should_be_new",
+  "should_have_merged",
+  "unclear",
+] as const;
+export type Verdict = (typeof VERDICTS)[number];
