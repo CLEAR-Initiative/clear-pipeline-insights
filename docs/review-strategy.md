@@ -60,7 +60,7 @@ This becomes evident as example in:
 flowchart LR
     subgraph Sources
       PIPE["clear-pipeline<br/>prod + staging"]
-      NIK["Locally run classifier<br/>local-classifier"]
+      LOC["Locally run classifier<br/>local-classifier"]
     end
 
     subgraph CA["clear-api"]
@@ -75,7 +75,7 @@ flowchart LR
 
     PIPE --> CA
     PIPE --> LC
-    NIK  --> LC
+    LOC  --> LC
 
     CA -. read .-> IE
     LC <--> CR
