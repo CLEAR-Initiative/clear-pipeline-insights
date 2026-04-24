@@ -92,7 +92,7 @@ export default async function DashboardPage({
         </div>
         <nav className="text-sm text-neutral-500">
           <a
-            className="hover:text-neutral-900"
+            className="hover:text-neutral-900 dark:hover:text-neutral-100"
             href={(() => {
               const qs = new URLSearchParams();
               qs.set("days", "7");
@@ -104,7 +104,7 @@ export default async function DashboardPage({
           </a>
           {" · "}
           <a
-            className="hover:text-neutral-900"
+            className="hover:text-neutral-900 dark:hover:text-neutral-100"
             href={(() => {
               const qs = new URLSearchParams();
               qs.set("days", "30");
@@ -116,7 +116,7 @@ export default async function DashboardPage({
           </a>
           {" · "}
           <a
-            className="hover:text-neutral-900"
+            className="hover:text-neutral-900 dark:hover:text-neutral-100"
             href={(() => {
               const qs = new URLSearchParams();
               qs.set("days", "90");
@@ -127,15 +127,15 @@ export default async function DashboardPage({
             90d
           </a>
           {" · "}
-          <Link className="hover:text-neutral-900" href="/live">
+          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/live">
             live →
           </Link>
           {" · "}
-          <Link className="hover:text-neutral-900" href="/review/group">
+          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/review/group">
             call review →
           </Link>
           {" · "}
-          <Link className="hover:text-neutral-900" href="/review/events">
+          <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/review/events">
             cluster review →
           </Link>
         </nav>
@@ -169,7 +169,7 @@ export default async function DashboardPage({
         {envs.length > 0 && (
           <a
             href={buildEnvHref(days, envs, null)}
-            className="text-xs text-neutral-500 underline hover:text-neutral-900"
+            className="text-xs text-neutral-500 underline hover:text-neutral-900 dark:hover:text-neutral-100"
           >
             clear
           </a>

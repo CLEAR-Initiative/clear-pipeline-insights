@@ -82,7 +82,7 @@ export default async function LivePage({
             </p>
           </div>
           <nav className="text-sm text-neutral-500">
-            <Link className="hover:text-neutral-900" href="/">
+            <Link className="hover:text-neutral-900 dark:hover:text-neutral-100" href="/">
               ← dashboard
             </Link>
           </nav>
@@ -116,7 +116,7 @@ export default async function LivePage({
           {envs.length > 0 && (
             <a
               href={buildEnvHref(envs, null)}
-              className="text-xs text-neutral-500 underline hover:text-neutral-900"
+              className="text-xs text-neutral-500 underline hover:text-neutral-900 dark:hover:text-neutral-100"
             >
               clear
             </a>

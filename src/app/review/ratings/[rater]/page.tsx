@@ -104,15 +104,15 @@ export default async function ReviewerRatingsPage({
           </p>
         </div>
         <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900">
+          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             ← dashboard
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/events" className="hover:text-neutral-900">
+          <Link href="/review/events" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             cluster review
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/ratings/aggregate" className="hover:text-neutral-900">
+          <Link href="/review/ratings/aggregate" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             all reviewers
           </Link>
         </nav>

@@ -72,19 +72,19 @@ export default async function ReviewEventsPage() {
           </p>
         </div>
         <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900">
+          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             ← dashboard
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/group" className="hover:text-neutral-900">
+          <Link href="/review/group" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             call-level review
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/ratings/james" className="hover:text-neutral-900">
+          <Link href="/review/ratings/james" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             my ratings
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/ratings/aggregate" className="hover:text-neutral-900">
+          <Link href="/review/ratings/aggregate" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             all reviewers
           </Link>
         </nav>

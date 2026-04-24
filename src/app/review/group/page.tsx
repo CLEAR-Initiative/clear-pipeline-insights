@@ -88,11 +88,11 @@ export default async function ReviewGroupPage({
           </p>
         </div>
         <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900">
+          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             ← dashboard
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/events" className="hover:text-neutral-900">
+          <Link href="/review/events" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             cluster review →
           </Link>
         </nav>
@@ -166,7 +166,7 @@ export default async function ReviewGroupPage({
         {envs.length > 0 && (
           <a
             href={toggleEnv(null)}
-            className="text-xs text-neutral-500 underline hover:text-neutral-900"
+            className="text-xs text-neutral-500 underline hover:text-neutral-900 dark:hover:text-neutral-100"
           >
             clear
           </a>

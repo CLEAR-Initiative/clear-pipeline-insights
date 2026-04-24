@@ -104,7 +104,7 @@ export default async function AggregateRatingsPage({
   const disagreementCount = rows.filter((r) => r.distinctVerdicts >= 2).length;
 
   return (
-    <main className="mx-auto max-w-6xl px-6 py-10">
+    <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6 flex items-baseline justify-between">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight">
@@ -117,15 +117,15 @@ export default async function AggregateRatingsPage({
           </p>
         </div>
         <nav className="text-sm text-neutral-500">
-          <Link href="/" className="hover:text-neutral-900">
+          <Link href="/" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             ← dashboard
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/events" className="hover:text-neutral-900">
+          <Link href="/review/events" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             cluster review
           </Link>
           <span className="mx-2">·</span>
-          <Link href="/review/ratings/james" className="hover:text-neutral-900">
+          <Link href="/review/ratings/james" className="hover:text-neutral-900 dark:hover:text-neutral-100">
             my ratings
           </Link>
         </nav>
