@@ -5,6 +5,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  real,
   smallint,
   text,
   timestamp,
@@ -81,12 +82,82 @@ export const callRating = pgTable(
   ],
 );
 
+export const importedEvent = pgTable(
+  "imported_event",
+  {
+    id: text().primaryKey(),
+    title: text(),
+    description: text(),
+    types: text().array(),
+    rank: real(),
+    validFrom: timestamp({ withTimezone: true }).notNull(),
+    validTo: timestamp({ withTimezone: true }).notNull(),
+    firstSignalCreatedAt: timestamp({ withTimezone: true }).notNull(),
+    lastSignalCreatedAt: timestamp({ withTimezone: true }).notNull(),
+    populationAffected: text(),
+    originLocationId: text(),
+    destinationLocationId: text(),
+    locationId: text(),
+    rawEvent: jsonb().notNull(),
+    teamId: text(),
+    importedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("imported_event_valid_from_idx").on(t.validFrom.desc()),
+    index("imported_event_imported_at_idx").on(t.importedAt.desc()),
+  ],
+);
+
+export const importedSignal = pgTable(
+  "imported_signal",
+  {
+    id: text().primaryKey(),
+    eventId: text()
+      .notNull()
+      .references(() => importedEvent.id, { onDelete: "cascade" }),
+    sourceId: text(),
+    sourceName: text(),
+    title: text(),
+    description: text(),
+    url: text(),
+    publishedAt: timestamp({ withTimezone: true }).notNull(),
+    collectedAt: timestamp({ withTimezone: true }).notNull(),
+    rawSignal: jsonb().notNull(),
+    importedAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [index("imported_signal_event_idx").on(t.eventId)],
+);
+
+export const eventRating = pgTable(
+  "event_rating",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    eventId: text().notNull(),
+    rater: text().notNull().default("james"),
+    verdict: text().notNull(),
+    confidence: smallint(),
+    notes: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("event_rating_event_rater_key").on(t.eventId, t.rater),
+    index("event_rating_event_idx").on(t.eventId),
+    index("event_rating_created_idx").on(t.createdAt.desc()),
+  ],
+);
+
 export type PipelineRun = typeof pipelineRun.$inferSelect;
 export type NewPipelineRun = typeof pipelineRun.$inferInsert;
 export type LlmCall = typeof llmCall.$inferSelect;
 export type NewLlmCall = typeof llmCall.$inferInsert;
 export type CallRating = typeof callRating.$inferSelect;
 export type NewCallRating = typeof callRating.$inferInsert;
+export type ImportedEvent = typeof importedEvent.$inferSelect;
+export type NewImportedEvent = typeof importedEvent.$inferInsert;
+export type ImportedSignal = typeof importedSignal.$inferSelect;
+export type NewImportedSignal = typeof importedSignal.$inferInsert;
+export type EventRating = typeof eventRating.$inferSelect;
+export type NewEventRating = typeof eventRating.$inferInsert;
 
 export const VERDICTS = [
   "correct",

@@ -15,6 +15,13 @@
       "when": 1777026079112,
       "tag": "0001_smooth_guardian",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1777036363818,
+      "tag": "0002_exotic_tarantula",
+      "breakpoints": true
     }
   ]
 }
