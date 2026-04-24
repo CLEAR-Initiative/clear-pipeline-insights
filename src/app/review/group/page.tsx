@@ -91,6 +91,10 @@ export default async function ReviewGroupPage({
           <Link href="/" className="hover:text-neutral-900">
             ← dashboard
           </Link>
+          <span className="mx-2">·</span>
+          <Link href="/review/events" className="hover:text-neutral-900">
+            cluster review →
+          </Link>
         </nav>
       </header>
 

@@ -132,7 +132,11 @@ export default async function DashboardPage({
           </Link>
           {" · "}
           <Link className="hover:text-neutral-900" href="/review/group">
-            review →
+            call review →
+          </Link>
+          {" · "}
+          <Link className="hover:text-neutral-900" href="/review/events">
+            cluster review →
           </Link>
         </nav>
       </header>
