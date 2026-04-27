@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { TopNav } from "@/components/top-nav";
 import { db } from "@/db/client";
 import { eventRating, importedEvent } from "@/db/schema";
 
@@ -94,17 +93,14 @@ export default async function ReviewerRatingsPage({
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
-        <TopNav currentPath={`/review/ratings/${rater}`} />
-        <div className="mt-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Ratings by <span className="font-mono">{rater}</span>
-          </h1>
-          <p className="text-sm text-neutral-500">
-            {totalForRater} event{totalForRater === 1 ? "" : "s"} rated total
-            {daysParsed !== null && <> · last {daysParsed} days shown</>}
-            {verdict && <> · verdict: {verdict}</>}
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Ratings by <span className="font-mono">{rater}</span>
+        </h1>
+        <p className="text-sm text-neutral-500">
+          {totalForRater} event{totalForRater === 1 ? "" : "s"} rated total
+          {daysParsed !== null && <> · last {daysParsed} days shown</>}
+          {verdict && <> · verdict: {verdict}</>}
+        </p>
       </header>
 
       <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

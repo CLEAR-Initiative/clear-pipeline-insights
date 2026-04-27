@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { and, desc, eq, sql } from "drizzle-orm";
-import { TopNav } from "@/components/top-nav";
 import { db } from "@/db/client";
 import { eventRating, importedEvent } from "@/db/schema";
 
@@ -107,17 +106,14 @@ export default async function AggregateRatingsPage({
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
-        <TopNav currentPath="/review/ratings/aggregate" />
-        <div className="mt-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            All ratings
-          </h1>
-          <p className="text-sm text-neutral-500">
-            {rows.length} rated event{rows.length === 1 ? "" : "s"} shown · {allRaters.length}{" "}
-            rater{allRaters.length === 1 ? "" : "s"} total · {disagreementCount} with
-            disagreement
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          All ratings
+        </h1>
+        <p className="text-sm text-neutral-500">
+          {rows.length} rated event{rows.length === 1 ? "" : "s"} shown · {allRaters.length}{" "}
+          rater{allRaters.length === 1 ? "" : "s"} total · {disagreementCount} with
+          disagreement
+        </p>
       </header>
 
       <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

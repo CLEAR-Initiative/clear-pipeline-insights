@@ -1,4 +1,3 @@
-import { TopNav } from "@/components/top-nav";
 import { fmtSignedUsd, fmtUsd, pivot, summarizeCache } from "@/lib/dashboard";
 import { MODEL_PRICES } from "@/lib/prices";
 import {
@@ -88,16 +87,13 @@ export default async function DashboardPage({
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-8">
-        <TopNav currentPath="/" />
-        <div className="mt-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Pipeline Insights
-          </h1>
-          <p className="text-sm text-neutral-500">
-            LLM call cost & volume — last {days} days
-            {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Pipeline Insights
+        </h1>
+        <p className="text-sm text-neutral-500">
+          LLM call cost & volume — last {days} days
+          {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
+        </p>
       </header>
 
       <section className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

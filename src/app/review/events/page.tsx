@@ -1,5 +1,4 @@
 import { desc, inArray, sql } from "drizzle-orm";
-import { TopNav } from "@/components/top-nav";
 import { db } from "@/db/client";
 import { eventRating, importedEvent, importedSignal } from "@/db/schema";
 import { ImportControls } from "./import-controls";
@@ -63,15 +62,12 @@ export default async function ReviewEventsPage() {
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
-        <TopNav currentPath="/review/events" />
-        <div className="mt-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Cluster review
-          </h1>
-          <p className="text-sm text-neutral-500">
-            Import recent events from clear-api and rate each cluster as a whole.
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Cluster review
+        </h1>
+        <p className="text-sm text-neutral-500">
+          Import recent events from clear-api and rate each cluster as a whole.
+        </p>
       </header>
 
       <ImportControls hasImports={events.length > 0} />

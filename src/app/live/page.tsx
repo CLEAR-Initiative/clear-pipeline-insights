@@ -1,4 +1,3 @@
-import { TopNav } from "@/components/top-nav";
 import { fmtSignedUsd, fmtUsd, summarizeCache } from "@/lib/dashboard";
 import { MODEL_PRICES } from "@/lib/prices";
 import {
@@ -70,18 +69,15 @@ export default async function LivePage({
       <meta httpEquiv="refresh" content={String(REFRESH_SECONDS)} />
       <main className="mx-auto max-w-5xl px-6 py-10">
         <header className="mb-8">
-          <TopNav currentPath="/live" />
-          <div className="mt-4">
-            <h1 className="text-2xl font-semibold tracking-tight">
-              Live — last 60 minutes
-              <span className="ml-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500 align-middle" />
-            </h1>
-            <p className="text-sm text-neutral-500">
-              Auto-refresh every {REFRESH_SECONDS}s · rendered at{" "}
-              {new Date().toISOString().replace("T", " ").slice(0, 19)}Z
-              {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
-            </p>
-          </div>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Live — last 60 minutes
+            <span className="ml-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500 align-middle" />
+          </h1>
+          <p className="text-sm text-neutral-500">
+            Auto-refresh every {REFRESH_SECONDS}s · rendered at{" "}
+            {new Date().toISOString().replace("T", " ").slice(0, 19)}Z
+            {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
+          </p>
         </header>
 
         <section className="mb-8 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">

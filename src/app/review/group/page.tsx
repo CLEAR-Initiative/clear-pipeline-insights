@@ -1,4 +1,3 @@
-import { TopNav } from "@/components/top-nav";
 import type { Verdict } from "@/db/schema";
 import {
   fetchAvailableEnvs,
@@ -78,16 +77,13 @@ export default async function ReviewGroupPage({
   return (
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
-        <TopNav currentPath="/review/group" />
-        <div className="mt-4">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Call review
-          </h1>
-          <p className="text-sm text-neutral-500">
-            Rate Claude&rsquo;s grouping decisions — last {days} days
-            {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
-          </p>
-        </div>
+        <h1 className="text-2xl font-semibold tracking-tight">
+          Call review
+        </h1>
+        <p className="text-sm text-neutral-500">
+          Rate Claude&rsquo;s grouping decisions — last {days} days
+          {envs.length > 0 && <> · envs: {envs.join(", ")}</>}
+        </p>
       </header>
 
       <section className="mb-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
