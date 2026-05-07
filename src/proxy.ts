@@ -15,11 +15,11 @@ export function proxy(request: NextRequest) {
 export const config = {
   // Match everything except:
   //  - /api/auth/*       (Better Auth's own routes)
-  //  - /api/calls, /api/runs (bearer-token gated, never cookie-gated)
+  //  - /api/calls, /api/runs, /api/evaluations (bearer-token gated, never cookie-gated)
   //  - /sign-in          (the sign-in page itself)
   //  - /_next/*          (Next assets)
   //  - any path with a file extension (favicon, png, etc.)
   matcher: [
-    "/((?!api/auth|api/calls|api/runs|sign-in|_next/static|_next/image|favicon\\.ico|.*\\.[^/]+$).*)",
+    "/((?!api/auth|api/calls|api/runs|api/evaluations|sign-in|_next/static|_next/image|favicon\\.ico|.*\\.[^/]+$).*)",
   ],
 };

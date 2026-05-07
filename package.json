@@ -11,7 +11,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "create-user": "tsx scripts/create-user.ts"
+    "create-user": "tsx scripts/create-user.ts",
+    "run-eval": "tsx scripts/run-eval.ts"
   },
   "dependencies": {
     "better-auth": "^1.6.9",

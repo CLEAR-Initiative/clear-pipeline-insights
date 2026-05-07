@@ -12,6 +12,13 @@ export const MODEL_PRICES: Record<string, ModelPrice> = {
   "nikita-v1": { input: 0, output: 0 },
 };
 
+// Self-hosted candidates with no per-token API price. costUsd remains null;
+// GPU-time × $/hour is the eval runner's responsibility, not this module's.
+export const UNPRICED_KNOWN_MODELS = new Set<string>([
+  "gemma-3-27b-instruct",
+  "bert-frozen-sitrep-v3",
+]);
+
 export type Usage = {
   input_tokens?: number | null;
   output_tokens?: number | null;

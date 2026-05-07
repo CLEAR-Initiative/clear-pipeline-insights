@@ -5,6 +5,7 @@ import {
   jsonb,
   numeric,
   pgTable,
+  primaryKey,
   real,
   smallint,
   text,
@@ -146,6 +147,61 @@ export const eventRating = pgTable(
   ],
 );
 
+export const evaluationSet = pgTable(
+  "evaluation_set",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    name: text().notNull(),
+    version: text().notNull(),
+    stage: text().notNull(),
+    description: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    unique("evaluation_set_name_version_key").on(t.name, t.version),
+    index("evaluation_set_stage_idx").on(t.stage),
+  ],
+);
+
+export const evaluationSetItem = pgTable(
+  "evaluation_set_item",
+  {
+    id: uuid().primaryKey().defaultRandom(),
+    setId: uuid()
+      .notNull()
+      .references(() => evaluationSet.id, { onDelete: "cascade" }),
+    signalId: text(),
+    inputPayload: jsonb().notNull(),
+    groundTruth: jsonb().notNull(),
+    notes: text(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    index("evaluation_set_item_set_idx").on(t.setId),
+    index("evaluation_set_item_signal_idx")
+      .on(t.signalId)
+      .where(sql`${t.signalId} IS NOT NULL`),
+  ],
+);
+
+export const evaluationMetric = pgTable(
+  "evaluation_metric",
+  {
+    runId: uuid()
+      .notNull()
+      .references(() => pipelineRun.id, { onDelete: "cascade" }),
+    metricName: text().notNull(),
+    scope: text().notNull().default("overall"),
+    metricValue: numeric({ precision: 20, scale: 8 }),
+    details: jsonb(),
+    createdAt: timestamp({ withTimezone: true }).notNull().defaultNow(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.runId, t.metricName, t.scope] }),
+    index("evaluation_metric_run_idx").on(t.runId),
+  ],
+);
+
 export type PipelineRun = typeof pipelineRun.$inferSelect;
 export type NewPipelineRun = typeof pipelineRun.$inferInsert;
 export type LlmCall = typeof llmCall.$inferSelect;
@@ -158,6 +214,12 @@ export type ImportedSignal = typeof importedSignal.$inferSelect;
 export type NewImportedSignal = typeof importedSignal.$inferInsert;
 export type EventRating = typeof eventRating.$inferSelect;
 export type NewEventRating = typeof eventRating.$inferInsert;
+export type EvaluationSet = typeof evaluationSet.$inferSelect;
+export type NewEvaluationSet = typeof evaluationSet.$inferInsert;
+export type EvaluationSetItem = typeof evaluationSetItem.$inferSelect;
+export type NewEvaluationSetItem = typeof evaluationSetItem.$inferInsert;
+export type EvaluationMetric = typeof evaluationMetric.$inferSelect;
+export type NewEvaluationMetric = typeof evaluationMetric.$inferInsert;
 
 export const VERDICTS = [
   "correct",

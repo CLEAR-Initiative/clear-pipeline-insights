@@ -29,6 +29,13 @@
       "when": 1777471605855,
       "tag": "0003_equal_mephistopheles",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1778142631380,
+      "tag": "0004_classy_the_enforcers",
+      "breakpoints": true
     }
   ]
 }
