@@ -460,3 +460,287 @@ export async function fetchModelsSeen(
     cost: r.cost === null ? null : Number(r.cost),
   }));
 }
+
+export type EvalRunRow = {
+  id: string;
+  name: string;
+  modelId: string | null;
+  evalSetName: string | null;
+  evalSetVersion: string | null;
+  evalSetStage: string | null;
+  startedAt: Date;
+  endedAt: Date | null;
+  callCount: number;
+  parseErrorCount: number;
+  totalCostUsd: number | null;
+  avgLatencyMs: number | null;
+};
+
+export async function fetchEvalRuns(): Promise<EvalRunRow[]> {
+  const rows = await db().execute<{
+    id: string;
+    name: string;
+    model_id: string | null;
+    eval_set_name: string | null;
+    eval_set_version: string | null;
+    eval_set_stage: string | null;
+    started_at: Date;
+    ended_at: Date | null;
+    call_count: string;
+    parse_error_count: string;
+    total_cost_usd: string | null;
+    avg_latency_ms: string | null;
+  }>(sql`
+    SELECT
+      pr.id,
+      pr.name,
+      pr.config->>'model_id' AS model_id,
+      pr.config->>'eval_set_name' AS eval_set_name,
+      pr.config->>'eval_set_version' AS eval_set_version,
+      pr.config->>'eval_set_stage' AS eval_set_stage,
+      pr.started_at,
+      pr.ended_at,
+      COUNT(lc.id)::text AS call_count,
+      COUNT(lc.id) FILTER (WHERE lc.parse_error IS NOT NULL)::text AS parse_error_count,
+      SUM(lc.cost_usd)::text AS total_cost_usd,
+      AVG(lc.latency_ms)::text AS avg_latency_ms
+    FROM pipeline_run pr
+    LEFT JOIN llm_call lc ON lc.run_id = pr.id
+    WHERE pr.env = 'offline-eval'
+    GROUP BY pr.id
+    ORDER BY pr.started_at DESC
+    LIMIT 200
+  `);
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    modelId: r.model_id,
+    evalSetName: r.eval_set_name,
+    evalSetVersion: r.eval_set_version,
+    evalSetStage: r.eval_set_stage,
+    startedAt: new Date(r.started_at),
+    endedAt: r.ended_at ? new Date(r.ended_at) : null,
+    callCount: Number(r.call_count),
+    parseErrorCount: Number(r.parse_error_count),
+    totalCostUsd: r.total_cost_usd === null ? null : Number(r.total_cost_usd),
+    avgLatencyMs: r.avg_latency_ms === null ? null : Number(r.avg_latency_ms),
+  }));
+}
+
+export type EvalRunCallRow = {
+  callId: string;
+  signalId: string | null;
+  parsedResponse: unknown;
+  parseError: string | null;
+  latencyMs: number | null;
+  costUsd: number | null;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  createdAt: Date;
+};
+
+export type EvalRunDetail = {
+  id: string;
+  name: string;
+  env: string;
+  modelId: string | null;
+  evalSetId: string | null;
+  evalSetName: string | null;
+  evalSetVersion: string | null;
+  evalSetStage: string | null;
+  description: string | null;
+  startedAt: Date;
+  endedAt: Date | null;
+  gitSha: string | null;
+  calls: EvalRunCallRow[];
+};
+
+export async function fetchEvalRunDetail(
+  runId: string,
+): Promise<EvalRunDetail | null> {
+  const runRows = await db().execute<{
+    id: string;
+    name: string;
+    env: string;
+    model_id: string | null;
+    eval_set_id: string | null;
+    eval_set_name: string | null;
+    eval_set_version: string | null;
+    eval_set_stage: string | null;
+    description: string | null;
+    started_at: Date;
+    ended_at: Date | null;
+    git_sha: string | null;
+  }>(sql`
+    SELECT
+      pr.id,
+      pr.name,
+      pr.env,
+      pr.config->>'model_id' AS model_id,
+      pr.config->>'eval_set_id' AS eval_set_id,
+      pr.config->>'eval_set_name' AS eval_set_name,
+      pr.config->>'eval_set_version' AS eval_set_version,
+      pr.config->>'eval_set_stage' AS eval_set_stage,
+      pr.config->>'description' AS description,
+      pr.started_at,
+      pr.ended_at,
+      pr.git_sha
+    FROM pipeline_run pr
+    WHERE pr.id = ${runId}
+    LIMIT 1
+  `);
+  if (runRows.length === 0) return null;
+  const run = runRows[0];
+
+  const callRows = await db().execute<{
+    id: string;
+    signal_id: string | null;
+    parsed_response: unknown;
+    parse_error: string | null;
+    latency_ms: number | null;
+    cost_usd: string | null;
+    input_tokens: number | null;
+    output_tokens: number | null;
+    created_at: Date;
+  }>(sql`
+    SELECT
+      lc.id,
+      lc.signal_id,
+      lc.parsed_response,
+      lc.parse_error,
+      lc.latency_ms,
+      lc.cost_usd,
+      lc.input_tokens,
+      lc.output_tokens,
+      lc.created_at
+    FROM llm_call lc
+    WHERE lc.run_id = ${runId}
+    ORDER BY lc.created_at ASC
+    LIMIT 1000
+  `);
+
+  return {
+    id: run.id,
+    name: run.name,
+    env: run.env,
+    modelId: run.model_id,
+    evalSetId: run.eval_set_id,
+    evalSetName: run.eval_set_name,
+    evalSetVersion: run.eval_set_version,
+    evalSetStage: run.eval_set_stage,
+    description: run.description,
+    startedAt: new Date(run.started_at),
+    endedAt: run.ended_at ? new Date(run.ended_at) : null,
+    gitSha: run.git_sha,
+    calls: callRows.map((c) => ({
+      callId: c.id,
+      signalId: c.signal_id,
+      parsedResponse: c.parsed_response,
+      parseError: c.parse_error,
+      latencyMs: c.latency_ms,
+      costUsd: c.cost_usd === null ? null : Number(c.cost_usd),
+      inputTokens: c.input_tokens,
+      outputTokens: c.output_tokens,
+      createdAt: new Date(c.created_at),
+    })),
+  };
+}
+
+export type ModelDisagreementRow = {
+  callId: string;
+  runId: string;
+  runName: string;
+  env: string;
+  model: string;
+  stage: string;
+  promptVersion: string;
+  parsedResponse: unknown;
+  parseError: string | null;
+  latencyMs: number | null;
+  costUsd: number | null;
+  createdAt: Date;
+};
+
+export type ModelDisagreement = {
+  signalId: string;
+  groundTruth: unknown | null;
+  evalSetName: string | null;
+  evalSetVersion: string | null;
+  rows: ModelDisagreementRow[];
+};
+
+export async function fetchModelDisagreement(
+  signalId: string,
+): Promise<ModelDisagreement> {
+  const callRows = await db().execute<{
+    call_id: string;
+    run_id: string;
+    run_name: string;
+    env: string;
+    model: string;
+    stage: string;
+    prompt_version: string;
+    parsed_response: unknown;
+    parse_error: string | null;
+    latency_ms: number | null;
+    cost_usd: string | null;
+    created_at: Date;
+  }>(sql`
+    SELECT
+      lc.id AS call_id,
+      lc.run_id,
+      pr.name AS run_name,
+      pr.env,
+      lc.model,
+      lc.stage,
+      lc.prompt_version,
+      lc.parsed_response,
+      lc.parse_error,
+      lc.latency_ms,
+      lc.cost_usd,
+      lc.created_at
+    FROM llm_call lc
+    JOIN pipeline_run pr ON pr.id = lc.run_id
+    WHERE lc.signal_id = ${signalId}
+    ORDER BY lc.created_at DESC
+    LIMIT 100
+  `);
+
+  const groundTruthRows = await db().execute<{
+    ground_truth: unknown;
+    set_name: string;
+    set_version: string;
+  }>(sql`
+    SELECT
+      esi.ground_truth,
+      es.name AS set_name,
+      es.version AS set_version
+    FROM evaluation_set_item esi
+    JOIN evaluation_set es ON es.id = esi.set_id
+    WHERE esi.signal_id = ${signalId}
+    ORDER BY esi.created_at DESC
+    LIMIT 1
+  `);
+  const gt = groundTruthRows[0] ?? null;
+
+  return {
+    signalId,
+    groundTruth: gt ? gt.ground_truth : null,
+    evalSetName: gt ? gt.set_name : null,
+    evalSetVersion: gt ? gt.set_version : null,
+    rows: callRows.map((c) => ({
+      callId: c.call_id,
+      runId: c.run_id,
+      runName: c.run_name,
+      env: c.env,
+      model: c.model,
+      stage: c.stage,
+      promptVersion: c.prompt_version,
+      parsedResponse: c.parsed_response,
+      parseError: c.parse_error,
+      latencyMs: c.latency_ms,
+      costUsd: c.cost_usd === null ? null : Number(c.cost_usd),
+      createdAt: new Date(c.created_at),
+    })),
+  };
+}

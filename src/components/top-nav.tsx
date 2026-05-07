@@ -20,6 +20,7 @@ function buildItems(username: string): NavItem[] {
       label: "All ratings",
       key: "all-ratings",
     },
+    { href: "/eval", label: "Eval", key: "eval" },
   ];
 }
 
@@ -31,6 +32,7 @@ function isActive(currentPath: string, item: NavItem): boolean {
       currentPath !== "/review/ratings/aggregate"
     );
   }
+  if (item.key === "eval") return currentPath.startsWith("/eval");
   return currentPath === item.href;
 }
 

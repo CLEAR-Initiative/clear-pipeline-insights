@@ -16,6 +16,11 @@ function build() {
       provider: "pg",
       schema: authSchema,
     }),
+    advanced: {
+      database: {
+        generateId: () => crypto.randomUUID(),
+      },
+    },
     emailAndPassword: { enabled: false },
     user: {
       changeEmail: { enabled: false },
@@ -26,8 +31,8 @@ function build() {
         // Existing users can still sign in via magic link; new emails are rejected.
         disableSignUp: true,
         sendMagicLink: async ({ email, url }) => {
-          if (process.env.RESEND_API_KEY) {
-            await sendViaResend(email, url);
+          if (process.env.POSTMARK_SERVER_TOKEN) {
+            await sendViaPostmark(email, url);
             return;
           }
           // Dev fallback: log the link so a dev can copy/paste it.
@@ -53,24 +58,26 @@ export function auth(): AuthInstance {
   return cached;
 }
 
-async function sendViaResend(to: string, url: string): Promise<void> {
-  const apiKey = process.env.RESEND_API_KEY!;
-  const from = process.env.RESEND_FROM ?? "no-reply@insights.local";
-  const res = await fetch("https://api.resend.com/emails", {
+async function sendViaPostmark(to: string, url: string): Promise<void> {
+  const token = process.env.POSTMARK_SERVER_TOKEN!;
+  const from = process.env.POSTMARK_FROM ?? "no-reply@insights.local";
+  const res = await fetch("https://api.postmarkapp.com/email", {
     method: "POST",
     headers: {
-      Authorization: `Bearer ${apiKey}`,
+      Accept: "application/json",
       "Content-Type": "application/json",
+      "X-Postmark-Server-Token": token,
     },
     body: JSON.stringify({
-      from,
-      to,
-      subject: "Sign in to clear-pipeline-insights",
-      text: `Click to sign in: ${url}\n\nThis link expires in 5 minutes.`,
+      From: from,
+      To: to,
+      Subject: "Sign in to clear-pipeline-insights",
+      TextBody: `Click to sign in: ${url}\n\nThis link expires in 5 minutes.`,
+      MessageStream: "outbound",
     }),
   });
   if (!res.ok) {
     const body = await res.text();
-    throw new Error(`Resend send failed: ${res.status} ${body}`);
+    throw new Error(`Postmark send failed: ${res.status} ${body}`);
   }
 }

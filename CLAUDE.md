@@ -73,7 +73,7 @@ The shape to build toward, not what's in the repo yet:
 - `INSIGHTS_INGEST_TOKEN` — shared bearer token the pipeline uses for `/api/runs` and `/api/calls`.
 - `BETTER_AUTH_SECRET` — 32-byte hex secret used to sign session cookies + magic-link tokens.
 - `BETTER_AUTH_URL` — public origin of this app (e.g. `http://localhost:3000` or the Railway URL). Magic-link URLs are built relative to this.
-- `RESEND_API_KEY` / `RESEND_FROM` — optional. When unset, magic links are logged to the server console (dev only).
+- `POSTMARK_SERVER_TOKEN` / `POSTMARK_FROM` — optional. When unset, magic links are logged to the server console (dev only). `POSTMARK_FROM` must be a verified sender signature or a verified-domain address in your Postmark account.
 
 ## Conventions
 
