@@ -5,6 +5,7 @@ import {
   fetchGroupPromptVersions,
   fetchGroupReviewCounts,
 } from "@/lib/queries";
+import { getRater } from "@/lib/session";
 import { ReviewRow } from "./row";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +49,7 @@ export default async function ReviewGroupPage({
   const unratedOnly = showMode === "unrated";
   const promptVersion = params.pv?.trim() ? params.pv.trim() : null;
   const windowSeconds = days * 86_400;
+  const rater = await getRater();
 
   const [availableEnvs, promptVersions, counts, rows] = await Promise.all([
     fetchAvailableEnvs(),
@@ -56,6 +58,7 @@ export default async function ReviewGroupPage({
       envs,
       fromSeconds: windowSeconds,
       promptVersion,
+      rater,
     }),
     fetchGroupCallsForReview({
       envs,
@@ -63,6 +66,7 @@ export default async function ReviewGroupPage({
       unratedOnly,
       promptVersion,
       limit: 50,
+      rater,
     }),
   ]);
 

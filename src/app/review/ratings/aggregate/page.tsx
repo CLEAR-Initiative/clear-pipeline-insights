@@ -2,6 +2,7 @@ import Link from "next/link";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { eventRating, importedEvent } from "@/db/schema";
+import { requireSession, usernamesByIds } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -46,6 +47,7 @@ export default async function AggregateRatingsPage({
 }: {
   searchParams: Promise<SearchParams>;
 }) {
+  await requireSession();
   const sp = await searchParams;
   const onlyDisagreement = sp.only === "disagreement";
   const minRaters = Math.max(1, Math.min(10, Number(sp.min) || 1));
@@ -100,6 +102,9 @@ export default async function AggregateRatingsPage({
     .from(eventRating)
     .orderBy(eventRating.rater);
   const allRaters = allRatersResult.map((r) => r.rater);
+  const usernames = await usernamesByIds(allRaters);
+  const displayName = (id: string): string =>
+    usernames.get(id) ?? id.slice(0, 8);
 
   const disagreementCount = rows.filter((r) => r.distinctVerdicts >= 2).length;
 
@@ -209,16 +214,26 @@ export default async function AggregateRatingsPage({
               <tr>
                 <th className="px-3 py-2 font-medium">Event</th>
                 <th className="px-3 py-2 font-medium">Date</th>
-                {allRaters.map((r) => (
-                  <th key={r} className="px-3 py-2 font-mono font-medium">
-                    <Link
-                      href={`/review/ratings/${encodeURIComponent(r)}`}
-                      className="hover:underline"
-                    >
-                      {r}
-                    </Link>
-                  </th>
-                ))}
+                {allRaters.map((r) => {
+                  const name = displayName(r);
+                  const known = usernames.has(r);
+                  return (
+                    <th key={r} className="px-3 py-2 font-mono font-medium">
+                      {known ? (
+                        <Link
+                          href={`/review/ratings/${encodeURIComponent(name)}`}
+                          className="hover:underline"
+                        >
+                          @{name}
+                        </Link>
+                      ) : (
+                        <span className="text-neutral-400" title={r}>
+                          {name}…
+                        </span>
+                      )}
+                    </th>
+                  );
+                })}
                 <th className="px-3 py-2 font-medium">Status</th>
               </tr>
             </thead>

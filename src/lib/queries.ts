@@ -302,6 +302,7 @@ export async function fetchGroupCallsForReview(params: {
   unratedOnly: boolean;
   promptVersion?: string | null;
   limit: number;
+  rater: string;
 }): Promise<GroupCallReviewRow[]> {
   const envClauseLocal =
     params.envs.length > 0
@@ -350,7 +351,7 @@ export async function fetchGroupCallsForReview(params: {
       cr.created_at AS rating_created_at
     FROM llm_call lc
     JOIN pipeline_run pr ON pr.id = lc.run_id
-    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = 'james'
+    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = ${params.rater}
     WHERE lc.stage = 'group'
       AND lc.created_at >= now() - (${params.fromSeconds}::int * interval '1 second')
       ${envClauseLocal}
@@ -391,6 +392,7 @@ export async function fetchGroupReviewCounts(params: {
   envs: string[];
   fromSeconds: number;
   promptVersion?: string | null;
+  rater: string;
 }): Promise<GroupReviewCounts> {
   const envClauseLocal =
     params.envs.length > 0
@@ -409,7 +411,7 @@ export async function fetchGroupReviewCounts(params: {
       COUNT(*) FILTER (WHERE cr.id IS NULL)::text AS unrated
     FROM llm_call lc
     JOIN pipeline_run pr ON pr.id = lc.run_id
-    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = 'james'
+    LEFT JOIN call_rating cr ON cr.call_id = lc.id AND cr.rater = ${params.rater}
     WHERE lc.stage = 'group'
       AND lc.created_at >= now() - (${params.fromSeconds}::int * interval '1 second')
       ${envClauseLocal}

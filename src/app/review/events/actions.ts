@@ -5,6 +5,7 @@ import { and, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { eventRating, importedEvent, importedSignal } from "@/db/schema";
 import { ClearApiError, fetchRecentEvents } from "@/lib/clearApi";
+import { getRater, requireSession } from "@/lib/session";
 
 const IMPORT_HARD_CAP = 200;
 
@@ -15,6 +16,7 @@ export async function importEvents(input: {
   | { ok: true; eventsImported: number; signalsImported: number; teamId: string | null }
   | { ok: false; error: string }
 > {
+  await requireSession();
   const limit = Math.min(
     Math.max(1, Math.trunc(input.limit ?? IMPORT_HARD_CAP)),
     IMPORT_HARD_CAP,
@@ -128,6 +130,7 @@ export async function importEvents(input: {
 }
 
 export async function clearImports(): Promise<{ ok: true; cleared: number }> {
+  await requireSession();
   const deleted = await db().delete(importedEvent).returning({ id: importedEvent.id });
   revalidatePath("/review/events");
   return { ok: true, cleared: deleted.length };
@@ -146,7 +149,7 @@ export async function rateEvent(input: {
     return { ok: false, error: "verdict required" };
   }
   const notes = input.notes?.trim() ? input.notes.trim() : null;
-  const rater = "james";
+  const rater = await getRater();
 
   const existing = await db()
     .select({ id: eventRating.id })

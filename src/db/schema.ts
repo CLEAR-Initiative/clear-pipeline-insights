@@ -69,7 +69,7 @@ export const callRating = pgTable(
     callId: uuid()
       .notNull()
       .references(() => llmCall.id, { onDelete: "cascade" }),
-    rater: text().notNull().default("james"),
+    rater: text().notNull(),
     verdict: text().notNull(),
     confidence: smallint(),
     notes: text(),
@@ -133,7 +133,7 @@ export const eventRating = pgTable(
   {
     id: uuid().primaryKey().defaultRandom(),
     eventId: text().notNull(),
-    rater: text().notNull().default("james"),
+    rater: text().notNull(),
     verdict: text().notNull(),
     confidence: smallint(),
     notes: text(),

@@ -22,6 +22,13 @@
       "when": 1777036363818,
       "tag": "0002_exotic_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1777471605855,
+      "tag": "0003_equal_mephistopheles",
+      "breakpoints": true
     }
   ]
 }

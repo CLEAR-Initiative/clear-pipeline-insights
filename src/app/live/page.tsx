@@ -9,6 +9,7 @@ import {
   fetchParseErrorRate,
   fetchTopRuns,
 } from "@/lib/queries";
+import { requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +36,7 @@ export default async function LivePage({
 }: {
   searchParams: Promise<{ env?: string | string[] }>;
 }) {
+  await requireSession();
   const params = await searchParams;
   const envs = Array.isArray(params.env)
     ? params.env

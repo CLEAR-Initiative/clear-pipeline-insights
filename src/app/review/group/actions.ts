@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { and, eq } from "drizzle-orm";
 import { db } from "@/db/client";
 import { callRating, VERDICTS, type Verdict } from "@/db/schema";
+import { getRater, requireSession } from "@/lib/session";
 
 const VERDICT_SET = new Set<string>(VERDICTS);
 
@@ -17,6 +18,7 @@ export async function saveRating(input: {
   confidence?: number | null;
   notes?: string | null;
 }): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireSession();
   if (!input.callId || typeof input.callId !== "string") {
     return { ok: false, error: "callId required" };
   }
@@ -28,7 +30,7 @@ export async function saveRating(input: {
       ? null
       : Math.max(1, Math.min(5, Math.trunc(input.confidence)));
   const notes = input.notes?.trim() ? input.notes.trim() : null;
-  const rater = "james";
+  const rater = await getRater();
 
   const existing = await db()
     .select({ id: callRating.id })

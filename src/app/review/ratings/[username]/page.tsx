@@ -1,7 +1,10 @@
 import Link from "next/link";
+import { notFound } from "next/navigation";
 import { and, desc, eq, sql } from "drizzle-orm";
 import { db } from "@/db/client";
+import { user as userTable } from "@/db/auth-schema";
 import { eventRating, importedEvent } from "@/db/schema";
+import { requireSession } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +22,7 @@ type SearchParams = {
 };
 
 function buildHref(
-  rater: string,
+  username: string,
   current: SearchParams,
   overrides: Partial<SearchParams>,
 ): string {
@@ -28,7 +31,7 @@ function buildHref(
   if (merged.verdict) qs.set("verdict", merged.verdict);
   if (merged.days) qs.set("days", merged.days);
   const s = qs.toString();
-  return `/review/ratings/${encodeURIComponent(rater)}${s ? `?${s}` : ""}`;
+  return `/review/ratings/${encodeURIComponent(username)}${s ? `?${s}` : ""}`;
 }
 
 function fmtDate(d: Date | string | null | undefined): string {
@@ -40,18 +43,28 @@ export default async function ReviewerRatingsPage({
   params,
   searchParams,
 }: {
-  params: Promise<{ rater: string }>;
+  params: Promise<{ username: string }>;
   searchParams: Promise<SearchParams>;
 }) {
-  const { rater: raterParam } = await params;
-  const rater = decodeURIComponent(raterParam);
+  await requireSession();
+  const { username: usernameParam } = await params;
+  const username = decodeURIComponent(usernameParam).toLowerCase();
   const sp = await searchParams;
+
+  const userRow = await db()
+    .select({ id: userTable.id, username: userTable.username })
+    .from(userTable)
+    .where(eq(userTable.username, username))
+    .limit(1);
+
+  if (userRow.length === 0) notFound();
+  const raterId = userRow[0].id;
 
   const daysParsed =
     sp.days === "all" ? null : Math.max(1, Math.min(365, Number(sp.days) || 90));
   const verdict = sp.verdict?.trim() || null;
 
-  const conditions = [eq(eventRating.rater, rater)];
+  const conditions = [eq(eventRating.rater, raterId)];
   if (verdict) conditions.push(eq(eventRating.verdict, verdict));
   if (daysParsed !== null) {
     const windowSeconds = daysParsed * 86_400;
@@ -84,7 +97,7 @@ export default async function ReviewerRatingsPage({
         count: sql<number>`count(*)::int`,
       })
       .from(eventRating)
-      .where(eq(eventRating.rater, rater))
+      .where(eq(eventRating.rater, raterId))
       .groupBy(eventRating.verdict),
   ]);
 
@@ -94,7 +107,7 @@ export default async function ReviewerRatingsPage({
     <main className="mx-auto max-w-5xl px-6 py-10">
       <header className="mb-6">
         <h1 className="text-2xl font-semibold tracking-tight">
-          Ratings by <span className="font-mono">{rater}</span>
+          Ratings by <span className="font-mono">@{username}</span>
         </h1>
         <p className="text-sm text-neutral-500">
           {totalForRater} event{totalForRater === 1 ? "" : "s"} rated total
@@ -112,7 +125,7 @@ export default async function ReviewerRatingsPage({
           return (
             <a
               key={d}
-              href={buildHref(rater, sp, { days: String(d) })}
+              href={buildHref(username, sp, { days: String(d) })}
               className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
                 selected
                   ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
@@ -124,7 +137,7 @@ export default async function ReviewerRatingsPage({
           );
         })}
         <a
-          href={buildHref(rater, sp, { days: "all" })}
+          href={buildHref(username, sp, { days: "all" })}
           className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
             daysParsed === null
               ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
@@ -138,7 +151,7 @@ export default async function ReviewerRatingsPage({
           Verdict
         </span>
         <a
-          href={buildHref(rater, sp, { verdict: "" })}
+          href={buildHref(username, sp, { verdict: "" })}
           className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
             !verdict
               ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"
@@ -153,7 +166,7 @@ export default async function ReviewerRatingsPage({
           return (
             <a
               key={v}
-              href={buildHref(rater, sp, { verdict: v })}
+              href={buildHref(username, sp, { verdict: v })}
               className={`rounded border px-2 py-1 font-mono text-xs transition-colors ${
                 selected
                   ? "border-neutral-900 bg-neutral-900 text-white dark:border-neutral-100 dark:bg-neutral-100 dark:text-neutral-900"

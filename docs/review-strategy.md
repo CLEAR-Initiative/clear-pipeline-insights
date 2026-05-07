@@ -183,9 +183,7 @@ sequenceDiagram
     - `unclear`
 
     → Missing anything?
-4. **Single vs multi-rater**
-    - Current: `rater = 'james'`
-    - Future: show disagreement or last-write-wins?
+4. ~~**Single vs multi-rater**~~ — Resolved (bead `yby`). Better Auth gates the dashboard; `rater` stores the user's UUID; `/review/ratings/[username]` is per-user and `/review/ratings/aggregate` shows per-rater verdicts side-by-side. Conflict-resolution UX is deferred.
 5. **Local model integration timing**
     - Needed for Phase 4
     - Pending schema alignment

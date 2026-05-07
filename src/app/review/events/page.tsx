@@ -1,12 +1,14 @@
 import { desc, inArray, sql } from "drizzle-orm";
 import { db } from "@/db/client";
 import { eventRating, importedEvent, importedSignal } from "@/db/schema";
+import { getRater } from "@/lib/session";
 import { ImportControls } from "./import-controls";
 import { EventRow } from "./row";
 
 export const dynamic = "force-dynamic";
 
 export default async function ReviewEventsPage() {
+  const rater = await getRater();
   const events = await db()
     .select({
       id: importedEvent.id,
@@ -27,7 +29,7 @@ export default async function ReviewEventsPage() {
     .from(importedEvent)
     .leftJoin(
       eventRating,
-      sql`${eventRating.eventId} = ${importedEvent.id} AND ${eventRating.rater} = 'james'`,
+      sql`${eventRating.eventId} = ${importedEvent.id} AND ${eventRating.rater} = ${rater}`,
     )
     .orderBy(desc(importedEvent.validFrom))
     .limit(200);

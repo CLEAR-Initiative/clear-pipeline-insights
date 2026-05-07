@@ -11,6 +11,7 @@ import {
   fetchParseErrorRate,
   fetchTopRuns,
 } from "@/lib/queries";
+import { requireSession } from "@/lib/session";
 import { StackedBar } from "./stacked-bar";
 
 export const dynamic = "force-dynamic";
@@ -46,6 +47,7 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<{ days?: string; env?: string | string[] }>;
 }) {
+  await requireSession();
   const params = await searchParams;
   const days = Math.max(1, Math.min(365, Number(params.days) || 30));
   const envs = Array.isArray(params.env)
