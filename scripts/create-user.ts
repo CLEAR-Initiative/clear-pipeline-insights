@@ -31,7 +31,8 @@ async function main() {
     flagIndex >= 0 ? args[flagIndex].split("=")[1] : null;
   const positional = args.filter((a) => !a.startsWith("--"));
 
-  const [email, name, username] = positional;
+  const [rawEmail, name, username] = positional;
+  const email = rawEmail?.trim().toLowerCase();
   if (!email || !name || !username) {
     console.error(
       "Usage: tsx scripts/create-user.ts <email> <name> <username> [--backfill-rater=<old>]",
