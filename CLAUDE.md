@@ -81,3 +81,17 @@ The shape to build toward, not what's in the repo yet:
 - Tailwind v4 via `@tailwindcss/postcss` (see [postcss.config.mjs](postcss.config.mjs)). No `tailwind.config.*` file — Tailwind v4 uses CSS-first config in [src/app/globals.css](src/app/globals.css).
 - ESLint flat config extending `next/core-web-vitals` and `next/typescript` (see [eslint.config.mjs](eslint.config.mjs)).
 - Keep the ingest API permissive of additive schema changes, but the current field list in SPEC.md is the contract `clear-pipeline` is coding against — do not rename or remove fields without updating both sides.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in Exponential under the `syntrofi` workspace, `clear-pipeline` product. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Default Exponential status mapping (`BACKLOG` / `NEEDS_REFINEMENT` / `READY_TO_PLAN` / `BLOCKED` / `ARCHIVED`). See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` and `docs/adr/` at the repo root (not yet authored; run `/grill-with-docs` to author `CONTEXT.md`). See [docs/agents/domain.md](docs/agents/domain.md).
