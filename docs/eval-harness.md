@@ -1,6 +1,6 @@
 # Eval harness
 
-The model evaluation system: how to compare candidate models (Claude variants, Gemma, fine-tuned BERT) against each other on the same inputs. This document describes what's actually built; for the architectural decision behind it see the assessment in `~/.claude/plans/questions-for-assessment-bright-dragonfly.md` (or the eventual `docs/decisions/0001-eval-harness-extension.md`).
+The model evaluation system: how to compare candidate models (Claude variants, Gemma, fine-tuned BERT) against each other on the same inputs. This document describes what's actually built. The decision to extend this repo rather than build a separate harness is summarised below and belongs in an ADR under `docs/adr/` (not yet written; use `docs/adr/0000-template.md`).
 
 ## Why this exists
 
