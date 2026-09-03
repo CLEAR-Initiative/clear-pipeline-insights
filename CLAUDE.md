@@ -70,7 +70,7 @@ Different user group from the main CLEAR app. James + Prajava + Nikita + whoever
 - `DATABASE_URL` — Postgres connection string for insights data **and** Better Auth tables. Dedicated DB, **not** the clear-api production DB.
 - `INSIGHTS_INGEST_TOKEN` — shared bearer token the pipeline uses for `/api/runs` and `/api/calls`.
 - `BETTER_AUTH_SECRET` — 32-byte hex secret used to sign session cookies + magic-link tokens.
-- `BETTER_AUTH_URL` — public origin of this app (e.g. `http://localhost:3000` or the Railway URL). Magic-link URLs are built relative to this.
+- `BETTER_AUTH_URL` — public origin of this app (e.g. `http://localhost:3000` or the Vercel URL). Magic-link URLs are built relative to this.
 - `POSTMARK_SERVER_TOKEN` / `POSTMARK_FROM` — optional. When unset, magic links are logged to the server console (dev only). `POSTMARK_FROM` must be a verified sender signature or a verified-domain address in your Postmark account.
 - `CLEAR_API_URL` / `CLEAR_API_TOKEN` / `CLEAR_API_TEAM_ID` — only needed for the "Import" button on `/review/events`, which reads events and signals from clear-api over GraphQL. Everything else works without them.
 
