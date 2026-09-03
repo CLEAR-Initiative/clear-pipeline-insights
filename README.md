@@ -4,7 +4,7 @@ Engineering dashboard for the LLM calls made by the CLEAR humanitarian pipeline.
 
 It is a small Next.js app with its own Postgres. The audience is the pipeline engineers, not field teams, so the UI is deliberately plain and shows raw prompts and JSON.
 
-- **Live app:** the pipeline's default target is `https://clear-pipeline-insights.vercel.app` (see `insights_api_url` in `clear-pipeline/src/config.py`).
+- **Live app:** https://clear-pipeline-insights.vercel.app (invite-only). The pipeline's default target is the same URL (see `insights_api_url` in `clear-pipeline/src/config.py`).
 - **Why it exists:** [SPEC.md](SPEC.md) (original build spec, April 2026) and `../clear-pipeline/docs/PIPELINE_INSIGHTS_PROPOSAL.md` (the motivating proposal). Both are historical; this README describes what is actually built.
 
 ## How it fits together
@@ -217,7 +217,7 @@ Conventions: TypeScript strict, `@/*` maps to `src/*`, Tailwind v4 configured in
 
 ## Deployment
 
-The app is linked to a Vercel project and clear-pipeline defaults to `https://clear-pipeline-insights.vercel.app`. (SPEC.md and older notes say Railway; Vercel is what is wired up today.) Set every required variable from the table above in the Vercel project, plus `BETTER_AUTH_URL` = the public origin and the Postmark pair if you want real emails. Nothing runs migrations automatically: after merging a migration, run `npm run db:migrate` locally with `DATABASE_URL` pointed at the production database. Ingest requests from the pipeline are unaffected by dashboard auth, so an expired session never drops telemetry.
+The Next app runs on Vercel (the repo is linked to a Vercel project and clear-pipeline defaults to `https://clear-pipeline-insights.vercel.app`). The production Postgres is a Railway database, reached through `DATABASE_URL` with `sslmode` in the URL. SPEC.md describes both halves on Railway; only the database ended up there. Set every required variable from the table above in the Vercel project, plus `BETTER_AUTH_URL` = the public origin and the Postmark pair if you want real emails. Nothing runs migrations automatically: after merging a migration, run `npm run db:migrate` locally with `DATABASE_URL` pointed at the production database. Ingest requests from the pipeline are unaffected by dashboard auth, so an expired session never drops telemetry.
 
 ## Gotchas
 
