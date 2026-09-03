@@ -19,11 +19,11 @@ npm run lint    # eslint (flat config in eslint.config.mjs)
 
 There is **no test runner installed**. Do not invent one; if tests are needed, ask first.
 
-## What this repo is (and isn't yet)
+## What this repo is
 
-`clear-pipeline-insights` is the observability dashboard + ingest API for LLM calls made by the sibling `clear-pipeline` repo. See [SPEC.md](SPEC.md) for the full build plan — it is the source of truth for *what* to build. The proposal at `../clear-pipeline/docs/PIPELINE_INSIGHTS_PROPOSAL.md` is the source of truth for *why*.
+`clear-pipeline-insights` is the observability dashboard, human-review tooling, and model-evaluation harness for LLM calls made by the sibling `clear-pipeline` repo. [README.md](README.md) describes what is actually built and how to run it; read it first. [SPEC.md](SPEC.md) is the original Phase 1 build spec and the proposal at `../clear-pipeline/docs/PIPELINE_INSIGHTS_PROPOSAL.md` is the source of truth for *why*.
 
-**Current state:** freshly scaffolded by `create-next-app`. [src/app/page.tsx](src/app/page.tsx) is still the default splash page. None of the schema, API routes, Drizzle setup, prices module, or dashboard described in SPEC.md has been built yet. When asked to "add X," first check whether X is step 1–8 of SPEC.md's build order and follow that order unless the user says otherwise.
+**Current state:** Phases 1–3 plus the eval harness are shipped: cost dashboards (`/`, `/live`), call and cluster review (`/review/*`), per-rater and aggregate ratings, and the eval runs / comparison pages (`/eval/*`). Six migrations exist under `migrations/`. Longer docs live in `docs/` ([local-development.md](docs/local-development.md), [eval-harness.md](docs/eval-harness.md), [review-strategy.md](docs/review-strategy.md)). Treat any "not built yet" language in SPEC.md as historical.
 
 ## Why this exists (origin context)
 
@@ -53,9 +53,7 @@ Architectural implications:
 
 Different user group from the main CLEAR app. James + Prajava + Nikita + whoever else picks up the pipeline. No NGO field workers will look at this. That's why we tolerate rough Tailwind UI and why we can show raw prompts and JSON responses on the call-browser page later. Optimize for engineering legibility, not visual polish.
 
-## Architecture (target, per SPEC.md)
-
-The shape to build toward, not what's in the repo yet:
+## Architecture
 
 - **Ingest contract** — two API routes the pipeline POSTs to:
   - `POST /api/runs` at `src/app/api/runs/route.ts` — upserts a `pipeline_run` keyed on `(name, env, pipeline_repo)` while `ended_at IS NULL`.
@@ -63,17 +61,18 @@ The shape to build toward, not what's in the repo yet:
   - Both routes require `Authorization: Bearer $INSIGHTS_INGEST_TOKEN`.
 - **Prices** — `src/lib/prices.ts` holds a hand-maintained `MODEL_PRICES` map ($/1M tokens, including cache read/create) and a `computeCost(model, usage)` helper that returns `null` for unknown models. The dashboard surfaces unknown models in a "models seen" table so missing prices are immediately visible.
 - **DB** — Postgres via Drizzle ORM (`drizzle-orm`, `drizzle-kit`, `postgres`/`pg`). Schema in `src/db/schema.ts`; SQL migrations in `migrations/` (starting with `0001_init.sql`). Two tables in Phase 1: `pipeline_run` and `llm_call`. `signal_processing` and `rating` are Phase 2/3 — do not add them preemptively.
-- **Dashboard** — single page at `/` (server component pulling aggregates directly from Drizzle) with Recharts client components for the bar charts. Phase 1 scope is strictly: 24h hero stat, two 30-day stacked bar charts ($/day by env, $/day by stage), top-20-runs table, and the "models seen" table. **Do not** build call browser, ratings, prompt diffs, or run comparison — those are Phases 3 and 4.
+- **Dashboard** — `/` (30-day window, `?days=&env=` filters) and `/live` (60-minute window, auto-refresh) are server components pulling aggregates from `src/lib/queries.ts`, with one Recharts client component for the stacked bars. Review pages (`/review/*`) and eval pages (`/eval/*`) follow the same server-page + `actions.ts` + client `row.tsx` pattern. Resist opinionated quality scores: surface raw data and let the rating UI collect human labels.
 - **Auth** — dashboard pages (`/`, `/live`, `/review/*`) are gated by Better Auth (magic link, invite-only). Ingest routes (`/api/calls`, `/api/runs`) stay bearer-token-only — never run them through the cookie-based auth. Auth tables (`user`, `session`, `account`, `verification`) live in the same Postgres DB as the insights data (`DATABASE_URL`); they ship as `migrations/0004_auth_init.sql`. Cross-DB joins are technically possible now, but the code still does an explicit lookup pattern (e.g. `usernamesByIds()` in [src/lib/session.ts](src/lib/session.ts)) — keep that boundary so a future split back into a separate DB stays cheap. New users are created via `npm run create-user -- <email> <name> <username>`. Server actions and pages get the current user via `requireSession()`/`getRater()`/`getCurrentUser()` from [src/lib/session.ts](src/lib/session.ts) — `rater` columns store the user's UUID; `username` is the display/URL handle.
-- **Hosting** — Railway (Next app + Postgres on the same).
+- **Hosting** — Next app on Vercel; Postgres on Railway. Migrations are applied manually with `npm run db:migrate` (see README → Deployment).
 
 ## Env vars (see [.env.example](.env.example))
 
 - `DATABASE_URL` — Postgres connection string for insights data **and** Better Auth tables. Dedicated DB, **not** the clear-api production DB.
 - `INSIGHTS_INGEST_TOKEN` — shared bearer token the pipeline uses for `/api/runs` and `/api/calls`.
 - `BETTER_AUTH_SECRET` — 32-byte hex secret used to sign session cookies + magic-link tokens.
-- `BETTER_AUTH_URL` — public origin of this app (e.g. `http://localhost:3000` or the Railway URL). Magic-link URLs are built relative to this.
+- `BETTER_AUTH_URL` — public origin of this app (e.g. `http://localhost:3000` or the Vercel URL). Magic-link URLs are built relative to this.
 - `POSTMARK_SERVER_TOKEN` / `POSTMARK_FROM` — optional. When unset, magic links are logged to the server console (dev only). `POSTMARK_FROM` must be a verified sender signature or a verified-domain address in your Postmark account.
+- `CLEAR_API_URL` / `CLEAR_API_TOKEN` / `CLEAR_API_TEAM_ID` — only needed for the "Import" button on `/review/events`, which reads events and signals from clear-api over GraphQL. Everything else works without them.
 
 ## Conventions
 
@@ -81,3 +80,17 @@ The shape to build toward, not what's in the repo yet:
 - Tailwind v4 via `@tailwindcss/postcss` (see [postcss.config.mjs](postcss.config.mjs)). No `tailwind.config.*` file — Tailwind v4 uses CSS-first config in [src/app/globals.css](src/app/globals.css).
 - ESLint flat config extending `next/core-web-vitals` and `next/typescript` (see [eslint.config.mjs](eslint.config.mjs)).
 - Keep the ingest API permissive of additive schema changes, but the current field list in SPEC.md is the contract `clear-pipeline` is coding against — do not rename or remove fields without updating both sides.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live in Exponential under the `syntrofi` workspace, `clear-pipeline` product. See [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md).
+
+### Triage labels
+
+Default Exponential status mapping (`BACKLOG` / `NEEDS_REFINEMENT` / `READY_TO_PLAN` / `BLOCKED` / `ARCHIVED`). See [docs/agents/triage-labels.md](docs/agents/triage-labels.md).
+
+### Domain docs
+
+Single-context layout — `CONTEXT.md` and `docs/adr/` at the repo root (not yet authored; run `/grill-with-docs` to author `CONTEXT.md`). See [docs/agents/domain.md](docs/agents/domain.md).
