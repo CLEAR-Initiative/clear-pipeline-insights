@@ -228,9 +228,9 @@ The Next app runs on Vercel (the repo is linked to a Vercel project and clear-pi
 - **Magic links expire in 5 minutes** and Better Auth caches its config on first request, so restart `npm run dev` after changing auth or Postmark variables.
 - **`.env.example` is committed on purpose**; every other `.env*` file is ignored. Never put real values in the example.
 
-## Where work is tracked
+## Contributing
 
-Tickets for this repo live in Exponential under workspace `syntrofi`, product `clear-pipeline` (this is the one CLEAR project not under the `clear` workspace). Conventions are in [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md). The `.beads/` directory is an older local tracker; its open items are mostly the "warts" listed at the end of [docs/eval-harness.md](docs/eval-harness.md) and are not the team's source of truth.
+How to get involved, the PR workflow, and where work is tracked: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Further reading
 
