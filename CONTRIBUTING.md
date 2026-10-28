@@ -104,3 +104,8 @@ The deployed app runs on Vercel, with its Postgres on Railway. Values for the de
 ## Reporting a security issue
 
 Don't open a public issue. Use GitHub's private vulnerability reporting instead: https://github.com/CLEAR-Initiative/clear-pipeline-insights/security/advisories/new (Security tab, then "Report a vulnerability").
+
+## Licence
+
+clear-pipeline-insights is licensed under the [GNU Affero General Public License v3.0 or later](./LICENSE).
+By contributing, you agree your contribution is licensed the same way.

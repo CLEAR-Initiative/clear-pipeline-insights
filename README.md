@@ -239,3 +239,11 @@ How to get involved, the PR workflow, and where work is tracked: see [CONTRIBUTI
 - [docs/review-strategy.md](docs/review-strategy.md): the thinking behind call-level vs cluster-level review and why ratings live in this repo rather than clear-api.
 - [SPEC.md](SPEC.md): the original Phase 1 spec. Useful for the API contract's origin; superseded on scope and hosting.
 - [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): instructions for AI coding agents working in this repo.
+
+## License
+
+Copyright (C) 2026 Norwegian Refugee Council.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+Affero General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. See [`LICENSE`](./LICENSE) for the full text.
