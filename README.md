@@ -228,9 +228,9 @@ The Next app runs on Vercel (the repo is linked to a Vercel project and clear-pi
 - **Magic links expire in 5 minutes** and Better Auth caches its config on first request, so restart `npm run dev` after changing auth or Postmark variables.
 - **`.env.example` is committed on purpose**; every other `.env*` file is ignored. Never put real values in the example.
 
-## Where work is tracked
+## Contributing
 
-Tickets for this repo live in Exponential under workspace `syntrofi`, product `clear-pipeline` (this is the one CLEAR project not under the `clear` workspace). Conventions are in [docs/agents/issue-tracker.md](docs/agents/issue-tracker.md). The `.beads/` directory is an older local tracker; its open items are mostly the "warts" listed at the end of [docs/eval-harness.md](docs/eval-harness.md) and are not the team's source of truth.
+How to get involved, the PR workflow, and where work is tracked: see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Further reading
 
@@ -239,3 +239,11 @@ Tickets for this repo live in Exponential under workspace `syntrofi`, product `c
 - [docs/review-strategy.md](docs/review-strategy.md): the thinking behind call-level vs cluster-level review and why ratings live in this repo rather than clear-api.
 - [SPEC.md](SPEC.md): the original Phase 1 spec. Useful for the API contract's origin; superseded on scope and hosting.
 - [CLAUDE.md](CLAUDE.md) and [AGENTS.md](AGENTS.md): instructions for AI coding agents working in this repo.
+
+## License
+
+Copyright (C) 2026 Norwegian Refugee Council.
+
+This program is free software: you can redistribute it and/or modify it under the terms of the GNU
+Affero General Public License as published by the Free Software Foundation, either version 3 of the
+License, or (at your option) any later version. See [`LICENSE`](./LICENSE) for the full text.
